@@ -1,0 +1,25 @@
+/* Gradiente azul vibrante padronizado */
+body {
+  background: linear-gradient(180deg, #0a52be 0%, #0d2a6b 50%, #091533 100%);
+  min-height: 100vh;
+}
+
+/* Animação da Linha Laser do QR Code */
+@keyframes scan-line {
+  0% {
+    top: 8%;
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 8px #3b82f6);
+  }
+  100% {
+    top: 88%;
+    opacity: 0.7;
+  }
+}
+
+.animate-scan-line {
+  animation: scan-line 2s ease-in-out infinite alternate;
+}

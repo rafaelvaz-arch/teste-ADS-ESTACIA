@@ -1,0 +1,433 @@
+.modelo-de-rascunho {
+  display: flex;
+  height: 100vh;
+  min-height: 917px;
+  align-items: center;
+  justify-content: center;
+  padding: 0px 15.27px 0px 15.99px;
+  position: relative;
+  background:
+    linear-gradient(
+      117deg,
+      rgba(21, 93, 252, 1) 0%,
+      rgba(20, 71, 230, 1) 50%,
+      rgba(15, 23, 43, 1) 100%
+    ),
+    linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 1) 0%,
+      rgba(255, 255, 255, 1) 100%
+    );
+  width: 100%;
+}
+
+.modelo-de-rascunho .container {
+  position: relative;
+  width: 355px;
+  max-width: 100%;
+  height: 855px;
+  background-color: #ffffff;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0px 25px 50px -12px #00000040;
+}
+
+.modelo-de-rascunho .div {
+  position: absolute;
+  top: 368px;
+  left: 0;
+  width: 355px;
+  height: 59px;
+  display: flex;
+  border-bottom-width: 1.35px;
+  border-bottom-style: solid;
+  border-color: #e2e8f0;
+}
+
+.modelo-de-rascunho .button {
+  width: 177.37px;
+  height: 57.32px;
+  display: flex;
+  gap: 6px;
+}
+
+.modelo-de-rascunho .icon {
+  margin-top: 20.3px;
+  margin-left: 52.9px;
+  width: 19.99px;
+  height: 19.99px;
+}
+
+.modelo-de-rascunho .text-wrapper {
+  margin-top: 13.7px;
+  width: 48px;
+  height: 24px;
+  font-family: "Inter", Helvetica;
+  font-weight: 600;
+  color: #62748e;
+  font-size: 16px;
+  text-align: center;
+  letter-spacing: 0;
+  line-height: 24px;
+  white-space: nowrap;
+}
+
+.modelo-de-rascunho .button-2 {
+  width: 177.37px;
+  height: 57.32px;
+  display: flex;
+  gap: 5px;
+  background-color: #eff6ff;
+  border-bottom-width: 1.35px;
+  border-bottom-style: solid;
+  border-color: #155dfc;
+}
+
+.modelo-de-rascunho .img {
+  margin-top: 19.6px;
+  margin-left: 40.1px;
+  width: 19.99px;
+  height: 19.99px;
+}
+
+.modelo-de-rascunho .text-wrapper-2 {
+  margin-top: 13px;
+  width: 77px;
+  height: 24px;
+  font-family: "Inter", Helvetica;
+  font-weight: 600;
+  color: #155dfc;
+  font-size: 16px;
+  text-align: center;
+  letter-spacing: 0;
+  line-height: 24px;
+  white-space: nowrap;
+}
+
+.modelo-de-rascunho .form {
+  display: flex;
+  flex-direction: column;
+  width: 355px;
+  align-items: flex-start;
+  gap: 19px;
+  padding: 31.99px 31.99px 0px 31.99px;
+  position: absolute;
+  top: 427px;
+  left: 1px;
+}
+
+.modelo-de-rascunho .container-2 {
+  display: flex;
+  flex-direction: column;
+  height: 78.64px;
+  align-items: flex-start;
+  gap: 7.99px;
+  position: relative;
+  align-self: stretch;
+  width: 100%;
+}
+
+.modelo-de-rascunho .label {
+  position: relative;
+  align-self: stretch;
+  width: 100%;
+  height: 20.01px;
+}
+
+.modelo-de-rascunho .icon-2 {
+  position: absolute;
+  top: 2px;
+  left: 0;
+  width: 16px;
+  height: 16px;
+}
+
+.modelo-de-rascunho .text-wrapper-3 {
+  position: absolute;
+  top: -1px;
+  left: 24px;
+  font-family: "Inter", Helvetica;
+  font-weight: 600;
+  color: #314158;
+  font-size: 14px;
+  letter-spacing: 0;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.modelo-de-rascunho .div-wrapper {
+  display: flex;
+  height: 50.64px;
+  align-items: center;
+  padding: 12px 16px;
+  position: relative;
+  align-self: stretch;
+  width: 100%;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1.35px solid;
+  border-color: #e2e8f0;
+}
+
+.modelo-de-rascunho .text-wrapper-4 {
+  position: relative;
+  width: fit-content;
+  font-family: "Inter", Helvetica;
+  font-weight: 400;
+  color: #0a0a0a80;
+  font-size: 16px;
+  letter-spacing: 0;
+  line-height: normal;
+  white-space: nowrap;
+}
+
+.modelo-de-rascunho .button-3 {
+  position: relative;
+  align-self: stretch;
+  width: 100%;
+  height: 59.98px;
+  background-color: #155dfc;
+  border-radius: 14px;
+  box-shadow:
+    0px 4px 6px -4px #0000001a,
+    0px 10px 15px -3px #0000001a;
+}
+
+.modelo-de-rascunho .text-wrapper-5 {
+  position: absolute;
+  top: 14px;
+  left: 96px;
+  font-family: "Inter", Helvetica;
+  font-weight: 700;
+  color: #ffffff;
+  font-size: 18px;
+  text-align: center;
+  letter-spacing: 0;
+  line-height: 28px;
+  white-space: nowrap;
+}
+
+.modelo-de-rascunho .button-4 {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  width: 73px;
+  height: 24px;
+  align-items: flex-start;
+  position: absolute;
+  top: 822px;
+  left: 210px;
+}
+
+.modelo-de-rascunho .text-wrapper-6 {
+  position: relative;
+  width: fit-content;
+  margin-top: -1px;
+  margin-right: -5.98px;
+  font-family: "Inter", Helvetica;
+  font-weight: 600;
+  color: #155dfc;
+  font-size: 16px;
+  text-align: center;
+  letter-spacing: 0;
+  line-height: 24px;
+  white-space: nowrap;
+}
+
+.modelo-de-rascunho .j-tem-uma-conta {
+  position: absolute;
+  top: 824px;
+  left: 52px;
+  font-family: "Inter", Helvetica;
+  font-weight: 400;
+  color: #62748e;
+  font-size: 14px;
+  text-align: center;
+  letter-spacing: 0;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.modelo-de-rascunho .container-3 {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 355px;
+  height: 368px;
+  background-color: #f5ede0;
+  overflow: hidden;
+}
+
+.modelo-de-rascunho .image-estacia {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 260px;
+  height: 260px;
+  background-image: url(https://c.animaapp.com/O17CjKvw/img/image--estacia--1.png);
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center center;
+}
+
+.modelo-de-rascunho .heading {
+  position: absolute;
+  top: 205px;
+  left: 57px;
+  width: 250px;
+  height: 35px;
+  display: flex;
+  justify-content: center;
+}
+
+.modelo-de-rascunho .text-wrapper-7 {
+  margin-top: -2px;
+  width: 315px;
+  height: 74px;
+  margin-left: -9px;
+  text-shadow: 0px 4px 4px #00000040;
+  font-family: "Copse", Helvetica;
+  font-weight: 400;
+  color: #1d293d;
+  font-size: 30px;
+  text-align: center;
+  letter-spacing: 0;
+  line-height: 36px;
+}
+
+.modelo-de-rascunho .paragraph {
+  position: absolute;
+  top: 280px;
+  left: 48px;
+  width: 247px;
+  height: 40px;
+  display: flex;
+}
+
+.modelo-de-rascunho .p {
+  margin-top: -1px;
+  width: 212px;
+  height: 40px;
+  margin-left: 17.8px;
+  font-family: "Inter", Helvetica;
+  font-weight: 400;
+  color: #45556c;
+  font-size: 14px;
+  text-align: center;
+  letter-spacing: 0;
+  line-height: 20px;
+}
+
+/* Original adjustments */
+
+.modelo-de-rascunho .button {
+  align-items: flex-start;
+  padding: 0;
+  position: relative;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.modelo-de-rascunho .button-2 {
+  align-items: flex-start;
+  padding: 0;
+  position: relative;
+  cursor: pointer;
+  border-top: 0;
+  border-left: 0;
+  border-right: 0;
+}
+
+.modelo-de-rascunho .label {
+  display: block;
+  cursor: text;
+}
+
+.modelo-de-rascunho .div-wrapper {
+  padding: 0;
+}
+
+.modelo-de-rascunho .text-wrapper-4 {
+  width: 100%;
+  height: 100%;
+  padding: 12px 16px;
+  border: 0;
+  background: transparent;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  border-radius: 14px;
+  white-space: normal;
+}
+
+.modelo-de-rascunho .text-wrapper-4::placeholder {
+  color: #0a0a0a80;
+  opacity: 1;
+}
+
+.modelo-de-rascunho .div-wrapper:focus-within {
+  border-color: #155dfc;
+  box-shadow: 0 0 0 1px #155dfc;
+}
+
+.modelo-de-rascunho .button-3 {
+  border: 0;
+  cursor: pointer;
+}
+
+.modelo-de-rascunho .button-4 {
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+.modelo-de-rascunho .heading .text-wrapper-7,
+.modelo-de-rascunho .paragraph .p,
+.modelo-de-rascunho .button .text-wrapper,
+.modelo-de-rascunho .button-2 .text-wrapper-2,
+.modelo-de-rascunho .button-3 .text-wrapper-5,
+.modelo-de-rascunho .button-4 .text-wrapper-6,
+.modelo-de-rascunho .label .text-wrapper-3 {
+  display: block;
+}
+
+/* Adaptabilidade para Mídia Veicular / Orientação Landscape */
+
+@media (max-height: 860px) or (orientation: landscape) {
+  .modelo-de-rascunho {
+    height: auto;
+    min-height: 100vh;
+    padding: 20px 12px;
+  }
+
+  .modelo-de-rascunho .container {
+    margin: auto;
+  }
+}
+
+@media (max-width: 412px) {
+  .modelo-de-rascunho {
+    min-width: 100%;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .modelo-de-rascunho .container {
+    width: 100%;
+    max-width: 355px;
+  }
+
+  .modelo-de-rascunho .div,
+  .modelo-de-rascunho .container-3,
+  .modelo-de-rascunho .form {
+    width: 100%;
+  }
+
+  .modelo-de-rascunho .button,
+  .modelo-de-rascunho .button-2 {
+    width: 50%;
+  }
+}

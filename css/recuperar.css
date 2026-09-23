@@ -1,0 +1,349 @@
+.modelo-de-rascunho {
+  display: flex;
+  height: 917px;
+  align-items: center;
+  justify-content: center;
+  padding: 0px 15.99px 0px 15.99px;
+  position: relative;
+  background:
+    linear-gradient(
+      117deg,
+      rgba(21, 93, 252, 1) 0%,
+      rgba(20, 71, 230, 1) 50%,
+      rgba(15, 23, 43, 1) 100%
+    ),
+    linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 1) 0%,
+      rgba(255, 255, 255, 1) 100%
+    );
+  width: 100%;
+}
+
+.modelo-de-rascunho .container {
+  position: relative;
+  width: 380.43px;
+  max-width: 100%;
+  height: 610.43px;
+  margin-left: -0.21px;
+  margin-right: -0.21px;
+  background-color: #ffffff;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0px 25px 50px -12px #00000040;
+}
+
+.modelo-de-rascunho .div {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 380px;
+  height: 312px;
+  background: linear-gradient(
+    117deg,
+    rgba(255, 251, 235, 1) 0%,
+    rgba(254, 243, 198, 1) 50%,
+    rgba(255, 251, 235, 1) 100%
+  );
+}
+
+.modelo-de-rascunho .image-estacia {
+  position: absolute;
+  top: -23px;
+  left: -30px;
+  width: 410px;
+  height: 335px;
+  background-image: url(https://c.animaapp.com/qEDfni1r/img/image--estacia-@2x.png);
+  background-size: cover;
+  background-position: 50% 50%;
+}
+
+.modelo-de-rascunho .heading {
+  position: absolute;
+  top: 200px;
+  left: 48px;
+  width: 284px;
+  height: 36px;
+  display: flex;
+}
+
+.modelo-de-rascunho .text-wrapper {
+  margin-top: -2.7px;
+  width: 249px;
+  height: 36px;
+  margin-left: 18px;
+  font-family: "Inter", Helvetica;
+  font-weight: 700;
+  color: #1d293d;
+  font-size: 30px;
+  text-align: center;
+  letter-spacing: 0;
+  line-height: 36px;
+  white-space: nowrap;
+}
+
+.modelo-de-rascunho .paragraph {
+  display: flex;
+  width: 284px;
+  height: 20px;
+  align-items: flex-start;
+  position: absolute;
+  top: 244px;
+  left: 48px;
+}
+
+.modelo-de-rascunho .p {
+  position: relative;
+  width: fit-content;
+  margin-top: -1px;
+  margin-right: -7.53px;
+  font-family: "Inter", Helvetica;
+  font-weight: 400;
+  color: #45556c;
+  font-size: 14px;
+  text-align: center;
+  letter-spacing: 0;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.modelo-de-rascunho .form {
+  display: flex;
+  flex-direction: column;
+  width: 380px;
+  height: 298px;
+  align-items: flex-start;
+  gap: 23.98px;
+  padding: 31.99px 31.99px 0px 31.99px;
+  position: absolute;
+  top: 312px;
+  left: 0;
+}
+
+.modelo-de-rascunho .container-2 {
+  display: flex;
+  flex-direction: column;
+  height: 78.64px;
+  align-items: flex-start;
+  gap: 7.99px;
+  position: relative;
+  align-self: stretch;
+  width: 100%;
+}
+
+.modelo-de-rascunho .label {
+  position: relative;
+  align-self: stretch;
+  width: 100%;
+  height: 20.01px;
+}
+
+.modelo-de-rascunho .icon {
+  position: absolute;
+  top: 2px;
+  left: 0;
+  width: 16px;
+  height: 16px;
+}
+
+.modelo-de-rascunho .text-wrapper-2 {
+  position: absolute;
+  top: -1px;
+  left: 24px;
+  font-family: "Inter", Helvetica;
+  font-weight: 600;
+  color: #314158;
+  font-size: 14px;
+  letter-spacing: 0;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.modelo-de-rascunho .email-input {
+  display: flex;
+  height: 50.64px;
+  align-items: center;
+  padding: 12px 16px;
+  position: relative;
+  align-self: stretch;
+  width: 100%;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1.35px solid;
+  border-color: #e2e8f0;
+}
+
+.modelo-de-rascunho .text-wrapper-3 {
+  position: relative;
+  width: fit-content;
+  font-family: "Inter", Helvetica;
+  font-weight: 400;
+  color: #0a0a0a80;
+  font-size: 16px;
+  letter-spacing: 0;
+  line-height: normal;
+  white-space: nowrap;
+}
+
+.modelo-de-rascunho .button {
+  position: relative;
+  align-self: stretch;
+  width: 100%;
+  height: 59.98px;
+  background-color: #155dfc;
+  border-radius: 14px;
+  box-shadow:
+    0px 4px 6px -4px #0000001a,
+    0px 10px 15px -3px #0000001a;
+}
+
+.modelo-de-rascunho .text-wrapper-4 {
+  position: absolute;
+  top: 14px;
+  left: 81px;
+  font-family: "Inter", Helvetica;
+  font-weight: 700;
+  color: #ffffff;
+  font-size: 18px;
+  text-align: center;
+  letter-spacing: 0;
+  line-height: 28px;
+  white-space: nowrap;
+}
+
+.modelo-de-rascunho .button-2 {
+  position: relative;
+  align-self: stretch;
+  width: 100%;
+  height: 47.94px;
+}
+
+.modelo-de-rascunho .img {
+  position: absolute;
+  top: 14px;
+  left: 91px;
+  width: 20px;
+  height: 20px;
+}
+
+.modelo-de-rascunho .text-wrapper-5 {
+  position: absolute;
+  top: 9px;
+  left: 117px;
+  font-family: "Inter", Helvetica;
+  font-weight: 600;
+  color: #45556c;
+  font-size: 16px;
+  text-align: center;
+  letter-spacing: 0;
+  line-height: 24px;
+  white-space: nowrap;
+}
+
+/* Original CSS adjustments */
+
+.modelo-de-rascunho {
+  min-height: 917px;
+  height: 100vh;
+}
+
+.modelo-de-rascunho .container {
+  height: auto;
+  min-height: 610.43px;
+}
+
+.modelo-de-rascunho .heading {
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.modelo-de-rascunho .text-wrapper {
+  margin-left: 0;
+}
+
+.modelo-de-rascunho .form {
+  height: auto;
+}
+
+.modelo-de-rascunho .label {
+  display: block;
+  cursor: pointer;
+}
+
+.modelo-de-rascunho .email-input {
+  background-color: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  outline: none;
+  font-family: "Inter", Helvetica;
+  font-weight: 400;
+  color: #0a0a0a;
+  font-size: 16px;
+  line-height: normal;
+}
+
+.modelo-de-rascunho .email-input::placeholder {
+  color: #0a0a0a80;
+  opacity: 1;
+}
+
+.modelo-de-rascunho .email-input:focus {
+  border-color: #155dfc;
+}
+
+.modelo-de-rascunho .button {
+  display: block;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.modelo-de-rascunho .button:focus-visible {
+  outline: 2px solid #4a90e2;
+  outline-offset: 2px;
+}
+
+.modelo-de-rascunho .button-2 {
+  display: block;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.modelo-de-rascunho .button-2:focus-visible {
+  outline: 2px solid #4a90e2;
+  outline-offset: 2px;
+  border-radius: 14px;
+}
+
+/* Adaptabilidade para Dispositivos Móveis e Centrais Multimídia (Landscape) */
+
+@media (max-height: 650px) or (orientation: landscape) {
+  .modelo-de-rascunho {
+    height: auto;
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  .modelo-de-rascunho .container {
+    margin: auto;
+  }
+}
+
+@media (max-width: 412px) {
+  .modelo-de-rascunho {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .modelo-de-rascunho .container {
+    width: 100%;
+    max-width: 380px;
+  }
+
+  .modelo-de-rascunho .div,
+  .modelo-de-rascunho .form {
+    width: 100%;
+  }
+}

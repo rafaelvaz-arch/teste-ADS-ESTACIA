@@ -1,0 +1,242 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', sans-serif;
+}
+
+body {
+  background-color: #1b59f8;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.card-container {
+  background-color: #f6f3eb;
+  width: 100%;
+  max-width: 380px;
+  min-height: 640px;
+  border-radius: 28px;
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.header-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.btn-back {
+  background: #ffffff;
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1c1c1e;
+  text-decoration: none;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  transition: background 0.2s;
+}
+
+.btn-back:hover {
+  background: #eef4ff;
+}
+
+.header-titles h1 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #1c1c1e;
+  line-height: 1.2;
+}
+
+.header-titles p {
+  font-size: 0.75rem;
+  color: #6e6e73;
+}
+
+.map-container {
+  background-color: #eef3f9;
+  border-radius: 20px;
+  padding: 14px;
+  margin-bottom: 16px;
+  position: relative;
+  background-image: radial-gradient(#d0dbe9 1px, transparent 1px);
+  background-size: 12px 12px;
+  border: 1px solid #e1e8f0;
+}
+
+.map-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.map-card {
+  background-color: #ffffff;
+  border-radius: 14px;
+  padding: 10px;
+  text-align: center;
+  text-decoration: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  border: 2px solid transparent;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.map-card:hover {
+  border-color: #1b59f8;
+  transform: translateY(-2px);
+}
+
+.map-card-icon {
+  font-size: 0.9rem;
+  margin-bottom: 2px;
+}
+
+.map-card-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #1c1c1e;
+}
+
+.map-card-sub {
+  font-size: 0.65rem;
+  color: #8e8e93;
+  margin-bottom: 6px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.badge-green {
+  background-color: #e6f9ed;
+  color: #12b76a;
+}
+
+.badge-yellow {
+  background-color: #fffaeb;
+  color: #f79009;
+}
+
+.badge-red {
+  background-color: #fef3f2;
+  color: #f04438;
+}
+
+.legend-box {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(4px);
+  border-radius: 12px;
+  padding: 8px 12px;
+  margin-top: 10px;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #555;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.dot-green { background-color: #12b76a; }
+.dot-yellow { background-color: #f79009; }
+.dot-red { background-color: #f04438; }
+
+.section-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1c1c1e;
+  margin-bottom: 10px;
+}
+
+.setores-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.setor-card {
+  background-color: #ffffff;
+  border-radius: 16px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-decoration: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+  transition: transform 0.15s ease;
+}
+
+.setor-card:hover {
+  transform: translateX(3px);
+}
+
+.setor-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.setor-avatar {
+  width: 38px;
+  height: 38px;
+  background-color: #1b59f8;
+  color: #ffffff;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.setor-info h4 {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1c1c1e;
+}
+
+.setor-info p {
+  font-size: 0.7rem;
+  color: #8e8e93;
+}
+
+.setor-right {
+  text-align: right;
+}
+
+.occupancy-text {
+  font-size: 0.65rem;
+  color: #8e8e93;
+  margin-top: 2px;
+  display: block;
+}
