@@ -1,4 +1,4 @@
-# Nome do projeto 
+# EstacIA
 
 Repositório institucional de Projeto Integrador criado a partir do template do CEUB.
 
@@ -13,17 +13,17 @@ Repositório institucional de Projeto Integrador criado a partir do template do 
 | --- | --- |
 | Instituição | CEUB |
 | Organização no GitHub | CampusCEUB |
-| Professor(a) responsável pela criação: | [Informar DRT e o(a) nome do professor(a)] |
-| Equipe | A equipe está listada nos times ou inserida diretamente no acesso a este repositório|
-| IDProjeto | Informar o ID do Projeto conforme consta no Portfólio de Projetos de TI do CEUB|
+| Professor(a) responsável pela criação: | Prof. Valdemir dos Santos Silva
+| Equipe | Grupo 03
+| IDProjeto | 03
 
 ## Problema
 
-Descreva sucintamente o problema, a oportunidade ou a necessidade que este projeto pretende tratar.
+A busca por vagas em estacionamentos de shopping centers costuma gerar congestionamentos, perda de tempo e gargalos no momento do pagamento, resultando em uma experiência frustrante para os clientes em horários de pico. Existe a oportunidade de transformar esse cenário ao digitalizar o fluxo de veículos, atendendo à necessidade de otimizar a rotatividade do espaço e oferecer uma mobilidade interna mais ágil, simples e sem atritos.
 
 ## Solução proposta
 
-Descreva sucintamente a solução planejada, o público atendido e o valor esperado.
+O EstacIA é uma aplicação web e mobile responsiva e intuitiva que oferece navegação integrada para localização rápida de vagas livres, além de permitir check-in e pagamento simplificados direto pelo navegador. Voltado para motoristas frequentadores de shoppings e administradores de estacionamentos, o sistema entrega valor ao reduzir drasticamente o tempo gasto procurando vagas, eliminar filas físicas nos guichês e elevar o nível de satisfação e conveniência da jornada do consumidor.
 
 ## Estrutura deste repositório
 
