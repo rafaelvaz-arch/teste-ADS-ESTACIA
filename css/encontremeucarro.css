@@ -1,0 +1,34 @@
+body {
+  background: linear-gradient(180deg, #0a52be 0%, #0d2a6b 50%, #091533 100%);
+  min-height: 100vh;
+}
+
+.app-card {
+  background-color: #eaf2ff;
+}
+
+/* Barra de progresso com gradiente igual ao protótipo */
+.progress-container {
+  background: linear-gradient(90deg, #4f46e5 0%, #a855f7 100%);
+  height: 8px;
+  border-radius: 99px;
+  position: relative;
+}
+
+.progress-puck {
+  width: 24px;
+  height: 24px;
+  background: #3b82f6;
+  border: 3px solid white;
+  border-radius: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  transition: left 0.5s ease;
+}
+
+/* Estilo do mapa igual à navegação */
+.map-container {
+  transition: all 0.7s ease-out;
+}

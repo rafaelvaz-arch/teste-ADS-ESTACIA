@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>estacIA - Setores Shopping Cidade Jardim</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+    body { background: linear-gradient(180deg, #0d47a1 0%, #1565c0 50%, #0a2540 100%); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 16px; }
+    .card-container { background-color: #f7f3ed; width: 100%; max-width: 420px; border-radius: 28px; overflow: hidden; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3); display: flex; flex-direction: column; padding: 20px 16px; gap: 16px; }
+    @media (min-width: 768px) { .card-container { max-width: 680px; padding: 32px 28px; gap: 20px; border-radius: 32px; } }
+
+    .header { display: flex; align-items: center; gap: 12px; }
+    .btn-back { width: 36px; height: 36px; background-color: #ffffff; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #1565c0; box-shadow: 0 2px 6px rgba(0,0,0,0.08); flex-shrink: 0; cursor: pointer; border: none; outline: none; }
+    .header-title-group { flex: 1; }
+    .header-title { font-size: 16px; font-weight: 700; color: #1a1a1a; line-height: 1.2; }
+    .header-subtitle { font-size: 11px; color: #666666; }
+
+    .legend-bar { background-color: #ffffff; border-radius: 20px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; font-size: 10px; font-weight: 600; color: #444444; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .legend-item { display: flex; align-items: center; gap: 4px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .dot.red { background-color: #d32f2f; }
+    .dot.orange { background-color: #f57c00; }
+    .dot.green { background-color: #2e7d32; }
+
+    .highlight-card { background-color: #ffffff; border: 2px solid #1565c0; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 12px rgba(21, 101, 192, 0.08); }
+    .highlight-header { display: flex; justify-content: space-between; align-items: flex-start; }
+    .highlight-title { font-size: 16px; font-weight: 700; color: #1a1a1a; }
+    .highlight-sub { font-size: 11px; color: #666666; margin-top: 2px; }
+    .highlight-vagas { text-align: right; }
+    .vagas-num { font-size: 26px; font-weight: 700; color: #1565c0; line-height: 1; }
+    .vagas-lbl { font-size: 9px; color: #777777; }
+
+    .btn-navigate { width: 100%; background-color: #1565c0; color: #ffffff; border: none; padding: 12px; border-radius: 12px; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 2px 8px rgba(21, 101, 192, 0.25); cursor: pointer; transition: background-color 0.2s, transform 0.1s; }
+    .btn-navigate:active { transform: scale(0.98); background-color: #0d47a1; }
+
+    .section-label { font-size: 11px; font-weight: 700; color: #666666; text-transform: uppercase; letter-spacing: 0.5px; }
+    .sectors-list { display: flex; flex-direction: column; gap: 10px; }
+    .sector-item { background-color: #ffffff; border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); border: 2px solid transparent; cursor: pointer; transition: border-color 0.2s; }
+    .sector-item.active { border-color: #1565c0; }
+    .sector-row-top { display: flex; justify-content: space-between; align-items: center; }
+    .sector-name { font-size: 13px; font-weight: 700; color: #1a1a1a; display: flex; align-items: center; gap: 6px; }
+    .sector-sub { font-size: 10px; color: #777777; margin-top: 1px; }
+
+    .badge-percent { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 10px; }
+    .badge-percent.green { background-color: #e8f5e9; color: #2e7d32; }
+    .badge-percent.orange { background-color: #fff3e0; color: #ef6c00; }
+    .badge-percent.red { background-color: #ffebee; color: #c62828; }
+
+    .progress-bar-bg { width: 100%; height: 6px; background-color: #eee; border-radius: 3px; overflow: hidden; }
+    .progress-bar-fill { height: 100%; border-radius: 3px; }
+    .progress-bar-fill.green { background-color: #2e7d32; width: 15%; }
+    .progress-bar-fill.orange { background-color: #ef6c00; width: 42%; }
+    .progress-bar-fill.red-63 { background-color: #c62828; width: 63%; }
+    .progress-bar-fill.red-92 { background-color: #c62828; width: 92%; }
+
+    .sector-row-bottom { display: flex; justify-content: space-between; align-items: center; font-size: 11px; margin-top: 2px; }
+    .vagas-avail { font-weight: 700; color: #1565c0; }
+    .link-ver-vagas { color: #1565c0; font-weight: 600; font-size: 10px; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+  <div class="card-container">
+    <header class="header">
+      <button class="btn-back" onclick="window.location.href='principal.html'">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="header-title-group">
+        <h1 class="header-title">Shopping Center Cidade Jardim</h1>
+        <p class="header-subtitle">Selecione um setor da planta</p>
+      </div>
+    </header>
+
+    <div class="legend-bar">
+      <div class="legend-item"><span class="dot red"></span> Ocupado (>50%)</div>
+      <div class="legend-item"><span class="dot orange"></span> Médio (20-50%)</div>
+      <div class="legend-item"><span class="dot green"></span> Livre (<20%)</div>
+    </div>
+
+    <!-- Destaque do Setor Selecionado -->
+    <div class="highlight-card">
+      <div class="highlight-header">
+        <div>
+          <h2 class="highlight-title" id="activeSectorTitle">Setor A - Norte</h2>
+          <p class="highlight-sub" id="activeSectorSub">Próx. Lojas Americanas</p>
+        </div>
+        <div class="highlight-vagas">
+          <div class="vagas-num" id="activeSectorVagas">51</div>
+          <div class="vagas-lbl">vagas livres</div>
+        </div>
+      </div>
+
+      <!-- BOTÃO NAVEGAR ATÉ O SETOR -->
+      <button class="btn-navigate" onclick="startNavigation()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+        Navegar até o Setor
+      </button>
+    </div>
+
+    <span class="section-label">Setores Disponíveis (Térreo)</span>
+
+    <div class="sectors-list">
+      <div class="sector-item active" onclick="selectSector('Setor A - Norte', 'Próx. Lojas Americanas', '51', this)">
+        <div class="sector-row-top">
+          <div>
+            <div class="sector-name">🚗 Setor A - Norte</div>
+            <div class="sector-sub">Próx. Lojas Americanas</div>
+          </div>
+          <span class="badge-percent green">15% ocupado</span>
+        </div>
+        <div class="progress-bar-bg"><div class="progress-bar-fill green"></div></div>
+        <div class="sector-row-bottom">
+          <span class="vagas-avail">51 vagas disponíveis</span>
+          <span class="link-ver-vagas" onclick="event.stopPropagation(); selectSector('Setor A - Norte', 'Próx. Lojas Americanas', '51', this.parentElement.parentElement); startNavigation();">Ver vagas →</span>
+        </div>
+      </div>
+
+      <div class="sector-item" onclick="selectSector('Setor B - Sul', 'Próx. C&A e Riachuelo', '35', this)">
+        <div class="sector-row-top">
+          <div>
+            <div class="sector-name">🚗 Setor B - Sul</div>
+            <div class="sector-sub">Próx. C&A e Riachuelo</div>
+          </div>
+          <span class="badge-percent orange">42% ocupado</span>
+        </div>
+        <div class="progress-bar-bg"><div class="progress-bar-fill orange"></div></div>
+        <div class="sector-row-bottom">
+          <span class="vagas-avail">35 vagas disponíveis</span>
+          <span class="link-ver-vagas" onclick="event.stopPropagation(); selectSector('Setor B - Sul', 'Próx. C&A e Riachuelo', '35', this.parentElement.parentElement); startNavigation();">Ver vagas →</span>
+        </div>
+      </div>
+
+      <div class="sector-item" onclick="selectSector('Setor C - Leste', 'Praça de Alimentação', '22', this)">
+        <div class="sector-row-top">
+          <div>
+            <div class="sector-name">🚗 Setor C - Leste</div>
+            <div class="sector-sub">Praça de Alimentação</div>
+          </div>
+          <span class="badge-percent red">63% ocupado</span>
+        </div>
+        <div class="progress-bar-bg"><div class="progress-bar-fill red-63"></div></div>
+        <div class="sector-row-bottom">
+          <span class="vagas-avail">22 vagas disponíveis</span>
+          <span class="link-ver-vagas" onclick="event.stopPropagation(); selectSector('Setor C - Leste', 'Praça de Alimentação', '22', this.parentElement.parentElement); startNavigation();">Ver vagas →</span>
+        </div>
+      </div>
+
+      <div class="sector-item" onclick="selectSector('Setor D - Oeste', 'Área de Carga e Serviços', '5', this)">
+        <div class="sector-row-top">
+          <div>
+            <div class="sector-name">🚗 Setor D - Oeste</div>
+            <div class="sector-sub">Área de Carga e Serviços</div>
+          </div>
+          <span class="badge-percent red">92% ocupado</span>
+        </div>
+        <div class="progress-bar-bg"><div class="progress-bar-fill red-92"></div></div>
+        <div class="sector-row-bottom">
+          <span class="vagas-avail">5 vagas disponíveis</span>
+          <span class="link-ver-vagas" onclick="event.stopPropagation(); selectSector('Setor D - Oeste', 'Área de Carga e Serviços', '5', this.parentElement.parentElement); startNavigation();">Ver vagas →</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentSelectedSector = { title: 'Setor A - Norte', sub: 'Próx. Lojas Americanas', vagas: '51' };
+
+    function selectSector(title, sub, vagas, element) {
+      currentSelectedSector = { title, sub, vagas };
+      document.getElementById('activeSectorTitle').innerText = title;
+      document.getElementById('activeSectorSub').innerText = sub;
+      document.getElementById('activeSectorVagas').innerText = vagas;
+
+      document.querySelectorAll('.sector-item').forEach(item => item.classList.remove('active'));
+      if(element) element.classList.add('active');
+    }
+
+    function startNavigation() {
+      localStorage.setItem('selectedSector', JSON.stringify(currentSelectedSector));
+      window.location.href = 'navegacao.html';
+    }
+  </script>
+</body>
+</html>
