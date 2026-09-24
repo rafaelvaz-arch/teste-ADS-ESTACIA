@@ -40,7 +40,7 @@ Nesta entrega, o escopo da solução foi totalmente consolidado para focar **exc
 * **Documentos Centrais da Entrega:**
   * 📄 [Declaração do Escopo do Projeto (v1.4)](./DECLARACAO_DE_ESCOPO.md)
   * 📋 [Documento de Especificação de Requisitos (v2.0)](./DOCUMENTO_DE_REQUISITOS.md)
-  * 🏗️ [Documento de Arquitetura de Software (v1.3)](./DOCUMENTO_DE_ARQUITETURA.md)
+  * 🏗️ [Documento de Arquitetura de Software (v1.3)](./DOCUMENTO_DE_ARQUITETURA.pdf)
 
 ## Critérios atendidos
 
