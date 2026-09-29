@@ -1,8 +1,18 @@
 const { useState, useEffect } = React;
 
+// Configuração do Supabase
+const SUPABASE_URL = "https://mktgawqrfggmfnqcwvsm.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_SiOuuGYOJ08WYyczoUTvUA_6yasNb3Z";
+
+const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
 function MonitoramentoApp() {
   const [minutes, setMinutes] = useState(14);
   const [amount, setAmount] = useState(1.98);
+  
+  // Novos estados para a vaga atual em tempo real
+  const [vagaCodigo, setVagaCodigo] = useState("A-101");
+  const [vagaStatus, setVagaStatus] = useState("OCUPADA");
 
   // Simulação de tempo decorrido
   useEffect(() => {
@@ -11,6 +21,30 @@ function MonitoramentoApp() {
       setAmount((prev) => parseFloat((prev + 0.14).toFixed(2)));
     }, 10000);
     return () => clearInterval(timer);
+  }, []);
+
+  // Escuta das atualizações da tabela 'vagas' em tempo real via Supabase
+  useEffect(() => {
+    if (!supabase) return;
+
+    const channel = supabase
+      .channel('vagas-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'vagas' },
+        (payload) => {
+          console.log('Dados recebidos em tempo real:', payload.new);
+          if (payload.new) {
+            if (payload.new.codigo_vaga) setVagaCodigo(payload.new.codigo_vaga);
+            if (payload.new.status) setVagaStatus(payload.new.status);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return (
@@ -53,8 +87,8 @@ function MonitoramentoApp() {
             </svg>
           </div>
           <div>
-            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">VAGA ATUAL</div>
-            <div className="text-xl font-black text-slate-900">A-145</div>
+            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">VAGA ATUAL ({vagaStatus})</div>
+            <div className="text-xl font-black text-slate-900">{vagaCodigo}</div>
           </div>
         </div>
 
