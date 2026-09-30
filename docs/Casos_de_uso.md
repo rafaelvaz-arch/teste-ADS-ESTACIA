@@ -1,75 +1,121 @@
-# Diagrama de Casos de Uso --- Sistema EstaCTA
+# Diagrama de Casos de Uso --- EstacIA
+
+## Diagrama principal --- Motorista / Condutor
 
 ``` mermaid
 flowchart LR
     M[Motorista / Condutor]
-    I[Sensor IoT<br/>ultrassônico]
-    S["Sistema EstaCTA (PWA & Backend)"]
+
+    UC01["UC01: Consultar<br/>Vagas em Tempo Real"]
+    UC02["UC02: Receber Recomendação<br/>de Vaga (IA XGBoost)"]
+    UC03["UC03: Navegar<br/>por Rota Indoor<br/>(Algoritmo A*)"]
+    UC04["UC04: Realizar<br/>Check-in via QR Code"]
+    UC05["UC05: Registar<br/>Ocupação Física Automática"]
+    UC06["UC06: Localizar Veículo<br/>(Encontre Meu Carro)"]
+    UC07["UC07: Efetuar Pagamento<br/>Digital (Pix/Cartão)"]
+    UC08["UC08: Gerir<br/>Tolerância de Saída (20 min)"]
+    UC09["UC09: Registar<br/>Desocupação de Vaga"]
+
     G[Gateway de Pagamento]
 
-    UC1["UC01: Consultar<br/>Vagas em Tempo Real"]
-    UC2["UC02: Receber Recomendação<br/>de Vaga (IA XGBoost)"]
-    UC3["UC03: Navegar<br/>por Rota Indoor<br/>(Algoritmo A*)"]
-    UC4["UC04: Realizar<br/>Check-in via QR Code"]
-    UC6["UC06: Localizar Veículo<br/>(Encontre Meu Carro)"]
-    UC7["UC07: Efetuar Pagamento<br/>Digital (Pix/Cartão)"]
-    UC8["UC08: Gerir<br/>Tolerância de<br/>Saída (20 min)"]
-    UC5["UC05: Registar<br/>Ocupação Física<br/>Automática"]
-    UC9["UC09: Registar<br/>Desocupação de<br/>Vaga"]
+    M --> UC01
+    M --> UC02
+    M --> UC03
+    M --> UC04
+    M --> UC06
+    M --> UC07
 
-    M --> UC1
-    M --> UC2
-    M --> UC3
-    M --> UC4
-    M --> UC6
-    M --> UC7
+    UC07 -. include .-> UC08
+    UC07 --> G
 
-    I --> UC5
-    I --> UC9
-
-    UC7 -. include .-> UC8
-    UC7 --> G
-
-    subgraph SISTEMA["Sistema EstaCTA (PWA & Backend)"]
-        UC1
-        UC2
-        UC3
-        UC4
-        UC6
-        UC7
-        UC8
-        UC5
-        UC9
-    end
+    %% Organização visual dos casos de uso
+    UC01 ~~~ UC02
+    UC02 ~~~ UC03
+    UC03 ~~~ UC04
+    UC04 ~~~ UC05
+    UC05 ~~~ UC06
+    UC06 ~~~ UC07
+    UC07 ~~~ UC08
+    UC08 ~~~ UC09
 ```
 
-## Atores
+### Ligações do Motorista / Condutor
 
--   **Motorista / Condutor**
--   **Sensor IoT ultrassônico**
--   **Gateway de Pagamento**
+-   **UC01** --- Consultar Vagas em Tempo Real
+-   **UC02** --- Receber Recomendação de Vaga (IA XGBoost)
+-   **UC03** --- Navegar por Rota Indoor (Algoritmo A\*)
+-   **UC04** --- Realizar Check-in via QR Code
+-   **UC06** --- Localizar Veículo ("Encontre Meu Carro")
+-   **UC07** --- Efetuar Pagamento Digital (Pix/Cartão)
 
-## Casos de uso
+### Relação entre UC07 e UC08
 
-  Código   Caso de uso
-  -------- -------------------------------------------
-  UC01     Consultar Vagas em Tempo Real
-  UC02     Receber Recomendação de Vaga (IA XGBoost)
-  UC03     Navegar por Rota Indoor (Algoritmo A\*)
-  UC04     Realizar Check-in via QR Code
-  UC05     Registar Ocupação Física Automática
-  UC06     Localizar Veículo ("Encontre Meu Carro")
-  UC07     Efetuar Pagamento Digital (Pix/Cartão)
-  UC08     Gerir Tolerância de Saída (20 min)
-  UC09     Registar Desocupação de Vaga
+-   **UC07 → UC08:** o UC07 **inclui** o UC08.
+-   **UC08:** Gerir Tolerância de Saída (20 min).
 
-## Relacionamentos
+### Ligação com o Gateway
 
--   O **Motorista / Condutor** interage com os casos de uso UC01, UC02,
-    UC03, UC04, UC06 e UC07.
--   O **Sensor IoT ultrassônico** interage com os casos de uso UC05 e
-    UC09.
--   O **Gateway de Pagamento** participa do UC07 --- Efetuar Pagamento
-    Digital.
--   O **UC07** inclui o **UC08**, relacionado ao gerenciamento da
-    tolerância de saída de 20 minutos.
+-   **UC07 → Gateway de Pagamento:** o pagamento digital é realizado por
+    meio do Gateway de Pagamento.
+
+------------------------------------------------------------------------
+
+## Diagrama separado --- Sensor IoT ultrassônico
+
+Este diagrama mostra **somente o Sensor IoT ultrassônico e os casos de
+uso diretamente relacionados a ele**.
+
+``` mermaid
+flowchart LR
+    S[Sensor IoT<br/>ultrassônico]
+
+    UC05["UC05: Registar<br/>Ocupação Física Automática"]
+    UC09["UC09: Registar<br/>Desocupação de Vaga"]
+
+    S --> UC05
+    S --> UC09
+
+    %% Organização visual
+    UC05 ~~~ UC09
+```
+
+### Ligações do Sensor IoT ultrassônico
+
+-   **Sensor IoT → UC05:** registra a ocupação física automática da
+    vaga.
+-   **Sensor IoT → UC09:** registra a desocupação da vaga.
+
+------------------------------------------------------------------------
+
+## Lista dos casos de uso
+
+  -----------------------------------------------------------------------
+  Código                  Caso de uso             Ator relacionado
+  ----------------------- ----------------------- -----------------------
+  **UC01**                Consultar Vagas em      Motorista / Condutor
+                          Tempo Real              
+
+  **UC02**                Receber Recomendação de Motorista / Condutor
+                          Vaga (IA XGBoost)       
+
+  **UC03**                Navegar por Rota Indoor Motorista / Condutor
+                          (Algoritmo A\*)         
+
+  **UC04**                Realizar Check-in via   Motorista / Condutor
+                          QR Code                 
+
+  **UC05**                Registar Ocupação       Sensor IoT ultrassônico
+                          Física Automática       
+
+  **UC06**                Localizar Veículo       Motorista / Condutor
+                          ("Encontre Meu Carro")  
+
+  **UC07**                Efetuar Pagamento       Motorista / Condutor +
+                          Digital (Pix/Cartão)    Gateway de Pagamento
+
+  **UC08**                Gerir Tolerância de     Incluído pelo UC07
+                          Saída (20 min)          
+
+  **UC09**                Registar Desocupação de Sensor IoT ultrassônico
+                          Vaga                    
+  -----------------------------------------------------------------------
