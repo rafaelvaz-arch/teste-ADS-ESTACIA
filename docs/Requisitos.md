@@ -169,7 +169,7 @@ Entre os principais riscos estão a indisponibilidade ou falha dos sensores, pro
 A rastreabilidade será mantida por meio da associação entre requisitos, issues, backlog, pull requests e evidências de entrega.
 
 | Requisito | Issue | Risco relacionado | Evidência |
-| :---: | :---: | :--- | :--- |
+| :---: | :---: | :---: | :---: |
 | RF01 | A definir | Falha no cadastro ou autenticação | Pull Request |
 | RF02 | A definir | Dados incorretos de ocupação das vagas | Pull Request |
 | RF03 | A definir | Recomendação inadequada de vaga | Pull Request |
