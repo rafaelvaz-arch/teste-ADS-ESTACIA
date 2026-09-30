@@ -87,12 +87,12 @@ flowchart LR
 
 ## Lista dos casos de uso
 
-  Código                  Caso de uso                 Ator relacionado
+  Código           |      Caso de uso                 Ator relacionado
   ---------------      -----------------------     -----------------------
-  **UC01**                Consultar Vagas em        Motorista / Condutor
+  **UC01**         |      Consultar Vagas em        Motorista / Condutor
                           Tempo Real              
 
-  **UC02**                Receber Recomendação de   Motorista / Condutor
+  **UC02**         |       Receber Recomendação de   Motorista / Condutor
                           Vaga (IA XGBoost)       
 
   **UC03**                Navegar por Rota Indoor   Motorista / Condutor
@@ -116,3 +116,10 @@ flowchart LR
   **UC09**                Registar Desocupação de   Sensor IoT ultrassônico
                           Vaga                    
   -----------------------------------------------------------------------
+  
+| Código | Caso de uso | Ator relacionado |
+| :---   |   :---:     |             ---: |
+| Alinhado à esquerda | Centralizado | Alinhado à direita |
+| Item A | Item B | Item C |
+| Exemplo 1 | Exemplo 2 | Exemplo 3 |
+
