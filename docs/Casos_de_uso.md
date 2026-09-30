@@ -87,33 +87,32 @@ flowchart LR
 
 ## Lista dos casos de uso
 
-  -----------------------------------------------------------------------
-  Código                  Caso de uso             Ator relacionado
-  ----------------------- ----------------------- -----------------------
-  **UC01**                Consultar Vagas em      Motorista / Condutor
+  Código                  Caso de uso                 Ator relacionado
+  ---------------      -----------------------     -----------------------
+  **UC01**                Consultar Vagas em        Motorista / Condutor
                           Tempo Real              
 
-  **UC02**                Receber Recomendação de Motorista / Condutor
+  **UC02**                Receber Recomendação de   Motorista / Condutor
                           Vaga (IA XGBoost)       
 
-  **UC03**                Navegar por Rota Indoor Motorista / Condutor
+  **UC03**                Navegar por Rota Indoor   Motorista / Condutor
                           (Algoritmo A\*)         
 
-  **UC04**                Realizar Check-in via   Motorista / Condutor
+  **UC04**                Realizar Check-in via     Motorista / Condutor
                           QR Code                 
 
-  **UC05**                Registar Ocupação       Sensor IoT ultrassônico
+  **UC05**                Registar Ocupação         Sensor IoT ultrassônico
                           Física Automática       
 
-  **UC06**                Localizar Veículo       Motorista / Condutor
+  **UC06**                Localizar Veículo         Motorista / Condutor
                           ("Encontre Meu Carro")  
 
-  **UC07**                Efetuar Pagamento       Motorista / Condutor +
-                          Digital (Pix/Cartão)    Gateway de Pagamento
+  **UC07**                Efetuar Pagamento         Motorista / Condutor +
+                          Digital (Pix/Cartão)       Gateway de Pagamento
 
-  **UC08**                Gerir Tolerância de     Incluído pelo UC07
+  **UC08**                Gerir Tolerância de       Incluído pelo UC07
                           Saída (20 min)          
 
-  **UC09**                Registar Desocupação de Sensor IoT ultrassônico
+  **UC09**                Registar Desocupação de   Sensor IoT ultrassônico
                           Vaga                    
   -----------------------------------------------------------------------
