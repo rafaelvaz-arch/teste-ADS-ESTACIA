@@ -1,13 +1,6 @@
 # Documentação do Diagrama de Casos de Uso — Sistema EstacIA
 
-## 1. Visão Geral
-
-Este documento descreve as interações, atores e funcionalidades do **Sistema EstacIA (PWA & Backend)** com base no Diagrama de Casos de Uso fornecido.
----
-
-## 2. Diagrama em Código (Mermaid)
-
-Você pode visualizar este diagrama em editores que suportam a sintaxe Mermaid (como GitHub, VS Code, Notion ou Obsidian):
+## Diagrama em Código (Mermaid)
 
 ```mermaid
 flowchart LR
@@ -48,7 +41,7 @@ flowchart LR
 
 ---
 
-## 3. Atores do Sistema
+## Atores do Sistema
 
 | Ator | Tipo | Descrição |
 | :--- | :--- | :--- |
@@ -58,7 +51,7 @@ flowchart LR
 
 ---
 
-## 4. Detalhamento dos Casos de Uso
+## Detalhamento dos Casos de Uso
 
 | Código | Caso de Uso | Ator Principal | Descrição |
 | :--- | :--- | :--- | :--- |
@@ -74,7 +67,7 @@ flowchart LR
 
 ---
 
-## 5. Relacionamentos Especiais
+## Relacionamentos Especiais
 
 * **Inclusão (`<<include>>`):** 
   * O caso de uso **UC07 (Efetuar Pagamento Digital)** *inclui* obrigatoriamente o **UC08 (Gerir Tolerância de Saída)**. Isso significa que sempre que um pagamento for efetuado com sucesso, a contagem da tolerância de saída será disparada/gerenciada pelo sistema.
