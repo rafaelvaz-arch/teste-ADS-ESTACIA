@@ -1,4 +1,4 @@
-# DOCUMENTO DE ESPECIFICAÇÃO DE REQUISITOS DE SOFTWARE
+# Documento de Requisitos
 
 **Projeto:** EstacIA - Gerenciador Inteligente de Garagem para Shopping Center  
 **Versão:** V2 (1.5)  
