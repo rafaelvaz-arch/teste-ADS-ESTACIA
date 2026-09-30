@@ -1,12 +1,13 @@
-# Arquitetura
-
-Este documento é um template genérico e deve permanecer independente de stack até que a turma defina oficialmente a sua tecnologia.
+# Arquitetura do EstacIA
 
 ## Contexto Técnico
 
 O EstacIA é uma solução desenvolvida para auxiliar motoristas durante a utilização de estacionamentos de shopping centers. O sistema tem como foco facilitar a identificação de vagas disponíveis, a recomendação de uma vaga adequada, a navegação dentro do estacionamento, o registro do estacionamento, o pagamento e a localização posterior do veículo.
+
 A utilização ocorre principalmente por meio de dispositivos móveis, através de uma aplicação PWA, permitindo que o motorista utilize as funcionalidades sem a necessidade de instalação por loja de aplicativos. O funcionamento depende de conexão com a internet, da infraestrutura física do estacionamento e dos sensores instalados nas vagas.
+
 A solução utiliza um mapa interno baseado em coordenadas para representar os espaços do estacionamento e possibilitar a navegação entre diferentes níveis. O sistema também utiliza sensores de presença para identificar a ocupação das vagas e disponibilizar essas informações para consulta e recomendação.
+
 A arquitetura foi planejada considerando os períodos de maior fluxo dos shopping centers, nos quais o sistema deverá processar múltiplos acessos e atualizações de disponibilidade das vagas de forma simultânea.
 
 
@@ -65,9 +66,13 @@ As integrações representam pontos de dependência da arquitetura, principalmen
 ## Dados
 
 O EstacIA trabalha com dados necessários para o funcionamento da jornada do motorista e para o monitoramento das vagas. Entre os principais dados estão informações de usuários, veículos, vagas, sensores, coordenadas, registros de estacionamento, pagamentos e histórico de estadias.
+
 Os dados de ocupação das vagas são obtidos por meio dos sensores instalados fisicamente no estacionamento. Essas informações são utilizadas para atualizar a disponibilidade das vagas e auxiliar a inteligência artificial na recomendação.
+
 As informações relacionadas ao mapa são representadas por coordenadas utilizadas para identificar a posição das vagas e dos pontos de navegação. O modelo de navegação considera diferentes níveis do estacionamento para permitir a criação de rotas entre os andares.
+
 Os registros de estacionamento permitem relacionar o usuário, o veículo e a vaga utilizada, enquanto os dados de pagamento e permanência são utilizados para o histórico do motorista.
+
 Os dados pessoais e informações relacionadas aos veículos devem receber tratamento adequado de segurança e privacidade, conforme os requisitos definidos para o sistema.
 
 
@@ -115,6 +120,9 @@ O projeto utiliza um mapa interno baseado em coordenadas em vez de depender de s
 ## Diagramas e Relação com ADRs
 
 Os diagramas arquiteturais utilizados no projeto representam diferentes perspectivas do EstacIA e auxiliam na compreensão da estrutura e do funcionamento da solução.
+
 Entre as representações utilizadas estão os diagramas relacionados aos componentes, pacotes, classes, implantação e fluxo da aplicação. A arquitetura também utiliza uma representação lógica para demonstrar a divisão entre apresentação, controle, regras de negócio, inteligência artificial e persistência.
+
 Os diagramas relacionados ao mapa interno representam a estrutura de navegação do estacionamento, considerando coordenadas e diferentes níveis. A arquitetura também contempla a comunicação entre os sensores, o backend e o armazenamento das informações de ocupação.
+
 As decisões arquiteturais consolidadas poderão ser registradas por meio de Architecture Decision Records (ADRs), permitindo documentar a decisão tomada, suas justificativas, alternativas consideradas e os componentes afetados.
