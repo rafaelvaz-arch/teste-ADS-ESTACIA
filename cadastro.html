@@ -228,14 +228,14 @@
       </a>
     </div>
 
-    <form class="form-body" onsubmit="event.preventDefault(); alert('Conta criada com sucesso!'); window.location.href='index.html';">
+    <form class="form-body" id="formCadastro">
       
       <div class="input-group">
         <label class="input-label">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           Nome Completo
         </label>
-        <input type="text" class="input-box" placeholder="Seu Nome" required />
+        <input type="text" id="nome" class="input-box" placeholder="Seu Nome" required />
       </div>
 
       <div class="input-group">
@@ -243,7 +243,7 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
           E-mail
         </label>
-        <input type="email" class="input-box" placeholder="seu@email.com" required />
+        <input type="email" id="email" class="input-box" placeholder="seu@email.com" required />
       </div>
 
       <div class="input-group">
@@ -251,10 +251,10 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           Senha
         </label>
-        <input type="password" class="input-box" placeholder="••••••••" required />
+        <input type="password" id="senha" class="input-box" placeholder="••••••••" required />
       </div>
 
-      <button type="submit" class="btn-submit">Criar Conta</button>
+      <button type="submit" id="btnCadastrar" class="btn-submit">Criar Conta</button>
 
       <div class="footer-text">
         Já tem uma conta? <a href="index.html">Entrar</a>
@@ -264,5 +264,9 @@
 
   </div>
 
+  <!-- BIBLIOTECAS E SCRIPTS DE CONEXÃO -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/cadastro.js"></script>
 </body>
 </html>

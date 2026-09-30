@@ -185,17 +185,17 @@
       <p class="header-subtitle">Digite seu e-mail para receber as instruções de redefinição</p>
     </div>
 
-    <form class="form-body" onsubmit="event.preventDefault(); alert('Instruções enviadas para o e-mail cadastrado!'); window.location.href='index.html';">
+    <form class="form-body" id="formRecuperar">
       
       <div class="input-group">
         <label class="input-label">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
           E-mail cadastrado
         </label>
-        <input type="email" class="input-box" placeholder="seu@email.com" required />
+        <input type="email" id="email" class="input-box" placeholder="seu@email.com" required />
       </div>
 
-      <button type="submit" class="btn-submit">Enviar Instruções</button>
+      <button type="submit" id="btnEnviar" class="btn-submit">Enviar Instruções</button>
 
       <div class="footer-text">
         Lembrou da senha? <a href="index.html">Voltar ao Login</a>
@@ -205,5 +205,18 @@
 
   </div>
 
+  <!-- 1. BIBLIOTECA DO SUPABASE -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabaseClient.js"></script>
+
+  <!-- 2. BIBLIOTECA DO EMAILJS (Precisa vir antes do recuperar.js) -->
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+  <script>
+    // Cole aqui a sua Public Key do EmailJS (que fica em Account no painel do EmailJS)
+    emailjs.init("aqcUu8Y62SHLWkyHT");
+  </script>
+
+  <!-- 3. SCRIPT PRINCIPAL DE RECUPERAÇÃO -->
+  <script src="js/recuperar.js"></script>
 </body>
 </html>
