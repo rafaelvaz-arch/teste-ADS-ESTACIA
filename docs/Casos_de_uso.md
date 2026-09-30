@@ -87,39 +87,15 @@ flowchart LR
 
 ## Lista dos casos de uso
 
-  Código           |      Caso de uso                 Ator relacionado
-  ---------------      -----------------------     -----------------------
-  **UC01**         |      Consultar Vagas em        Motorista / Condutor
-                          Tempo Real              
-
-  **UC02**         |       Receber Recomendação de   Motorista / Condutor
-                          Vaga (IA XGBoost)       
-
-  **UC03**                Navegar por Rota Indoor   Motorista / Condutor
-                          (Algoritmo A\*)         
-
-  **UC04**                Realizar Check-in via     Motorista / Condutor
-                          QR Code                 
-
-  **UC05**                Registar Ocupação         Sensor IoT ultrassônico
-                          Física Automática       
-
-  **UC06**                Localizar Veículo         Motorista / Condutor
-                          ("Encontre Meu Carro")  
-
-  **UC07**                Efetuar Pagamento         Motorista / Condutor +
-                          Digital (Pix/Cartão)       Gateway de Pagamento
-
-  **UC08**                Gerir Tolerância de       Incluído pelo UC07
-                          Saída (20 min)          
-
-  **UC09**                Registar Desocupação de   Sensor IoT ultrassônico
-                          Vaga                    
-  -----------------------------------------------------------------------
   
 | Código | Caso de uso | Ator relacionado |
 | :---   |   :---:     |             ---: |
-| Alinhado à esquerda | Centralizado | Alinhado à direita |
-| Item A | Item B | Item C |
-| Exemplo 1 | Exemplo 2 | Exemplo 3 |
-
+| **UC01**  | Consultar agas em tempo real | Motorista / Condutor |
+| **UC02**  | Receber recomendação de vaga (IA XGBoost) | Motorista / Condutor |
+| **UC03**  | Navegar por rota indoor (Algoritmo A\*) | Motorista / Condutor |
+| **UC04**  | Realizar check-in via QR Code | Motorista / Condutor |
+| **UC05**  | Registrar ocupação física automática | Sensor IoT ultrassônico |
+| **UC06**  | Localizar veículo ("Encontre meu carro") | Motorista / Condutor |
+| **UC07**  | Efetuar pagamento digital (Pix/Cartão) | Motorista / Condutor + Gateway de pagamento |
+| **UC08**  | Gerir tolerância de saída (20 min) |  Incluído pelo UC07 |
+| **UC09**  | Registrar desocupação de vaga | Sensor IoT ultrassônico |
