@@ -1,7 +1,7 @@
 # MVP
 Representação das funcionalidades principais do EstacIA.
 
-# EstacIA --- Modelo de Negócio
+# EstacIA --- Mínimo Produto Viável 
 
 ## Pessoas Segmentadas
 
