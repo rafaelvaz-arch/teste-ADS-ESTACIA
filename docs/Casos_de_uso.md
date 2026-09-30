@@ -14,7 +14,6 @@ flowchart LR
     UC06["UC06: Localizar Veículo<br/>(Encontre Meu Carro)"]
     UC07["UC07: Efetuar Pagamento<br/>Digital (Pix/Cartão)"]
     UC08["UC08: Gerir<br/>Tolerância de Saída (20 min)"]
-    UC09["UC09: Registar<br/>Desocupação de Vaga"]
 
     G[Gateway de Pagamento]
 
@@ -36,7 +35,6 @@ flowchart LR
     UC05 ~~~ UC06
     UC06 ~~~ UC07
     UC07 ~~~ UC08
-    UC08 ~~~ UC09
 ```
 
 ### Ligações do Motorista / Condutor
