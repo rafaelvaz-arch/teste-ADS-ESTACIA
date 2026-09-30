@@ -121,8 +121,7 @@ O projeto utiliza um mapa interno baseado em coordenadas em vez de depender de s
 
 Os diagramas arquiteturais utilizados no projeto representam diferentes perspectivas do EstacIA e auxiliam na compreensão da estrutura e do funcionamento da solução.
 
-Entre as representações utilizadas estão os diagramas relacionados aos componentes, pacotes, classes, implantação e fluxo da aplicação. A arquitetura também utiliza uma representação lógica para demonstrar a divisão entre apresentação, controle, regras de negócio, inteligência artificial e persistência.
+Entre as representações utilizadas estão os diagramas relacionados aos componentes, classes.
 
 Os diagramas relacionados ao mapa interno representam a estrutura de navegação do estacionamento, considerando coordenadas e diferentes níveis. A arquitetura também contempla a comunicação entre os sensores, o backend e o armazenamento das informações de ocupação.
 
-As decisões arquiteturais consolidadas poderão ser registradas por meio de Architecture Decision Records (ADRs), permitindo documentar a decisão tomada, suas justificativas, alternativas consideradas e os componentes afetados.
