@@ -85,11 +85,12 @@ flowchart LR
 
 
 
+
 ## Lista dos casos de uso
 
   
 | Código | Caso de uso | Ator relacionado |
-| :---   |   :---:     |             ---: |
+| :---:   |   :---:     |   :---: |
 | **UC01**  | Consultar agas em tempo real | Motorista / Condutor |
 | **UC02**  | Receber recomendação de vaga (IA XGBoost) | Motorista / Condutor |
 | **UC03**  | Navegar por rota indoor (Algoritmo A\*) | Motorista / Condutor |
