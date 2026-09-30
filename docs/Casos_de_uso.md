@@ -56,12 +56,12 @@ flowchart LR
 -   **UC07 → Gateway de Pagamento:** o pagamento digital é realizado por
     meio do Gateway de Pagamento.
 
-------------------------------------------------------------------------
 
-## Diagrama separado --- Sensor IoT ultrassônico
 
-Este diagrama mostra **somente o Sensor IoT ultrassônico e os casos de
-uso diretamente relacionados a ele**.
+## Diagrama Sensor IoT ultrassônico
+
+Este diagrama mostra Sensor IoT ultrassônico e os casos de
+uso diretamente relacionados a ele.
 
 ``` mermaid
 flowchart LR
@@ -83,7 +83,7 @@ flowchart LR
     vaga.
 -   **Sensor IoT → UC09:** registra a desocupação da vaga.
 
-------------------------------------------------------------------------
+
 
 ## Lista dos casos de uso
 
