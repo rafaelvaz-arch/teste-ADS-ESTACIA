@@ -32,5 +32,5 @@ O EstacIA é uma aplicação web e mobile responsiva e intuitiva que oferece nav
 | Backlog | Vincular o GitHub Project |
 | Sprints | [sprints/README.md](sprints/README.md) |
 | Entregas | [entregas/README.md](entregas/README.md) |
-| Requisitos | [docs/requisitos.md](docs/requisitos.md) |
-| Arquitetura | [docs/arquitetura.md](docs/arquitetura.md) |
+| Requisitos | [docs/requisitos.md](entregas/DOCUMENTO_DE_REQUISITOS.md) |
+| Arquitetura | [docs/arquitetura.md](entregas/DOCUMENTO_DE_ARQUITETURA.md) |
