@@ -38,7 +38,7 @@ document.getElementById('formRecuperar').addEventListener('submit', async (e) =>
       to_email: emailInput,
       email: emailInput,
       // Removido o '/Front-end' para bater com a raiz do Live Server
-      link_redefinicao: window.location.origin + '/Front-end/redefinir-senha.html?email=' + encodeURIComponent(emailInput)
+      link_redefinicao: window.location.origin + '/redefinir-senha.html?email=' + encodeURIComponent(emailInput)
     };
 
     // 3. Envio do e-mail real via EmailJS
