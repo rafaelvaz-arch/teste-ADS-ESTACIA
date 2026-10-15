@@ -1,6 +1,12 @@
+import json
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
+from django.views.decorators.csrf import csrf_exempt
 from database.astar_3d import AStar3D, NODES_CIDADE_JARDIM, EDGES_CIDADE_JARDIM
+from ai.detector import DetectorVagas
+
+# Instância global do detector para reaproveitar o modelo YOLOv8 em memória
+detector_ia = DetectorVagas()
 
 @require_GET
 def listar_vagas_disponiveis(request):
@@ -25,6 +31,7 @@ def listar_vagas_disponiveis(request):
 
 @require_GET
 def calcular_rota_api(request):
+    """Calcula o menor caminho 3D (A*) entre a origem e o destino selecionados."""
     origem = request.GET.get('origem')
     destino = request.GET.get('destino')
 
@@ -38,3 +45,35 @@ def calcular_rota_api(request):
     resultado = planner.get_route_payload(origem, destino)
 
     return JsonResponse(resultado, safe=False)
+
+@csrf_exempt
+def auditar_vaga_imagem(request):
+    """
+    Endpoint para receber uma imagem/frame da câmara da vaga
+    e auditar a ocupação via modelo YOLOv8.
+    """
+    if request.method == 'POST':
+        try:
+            # Regiões de Interesse (ROIs) padrão das vagas para cruzamento com o YOLO
+            rois_cidade_jardim = {
+                'SS1_SETOR_A_VAGA_145': [100, 150, 300, 400],
+                'SS1_SETOR_B_VAGA_089': [320, 150, 520, 400],
+            }
+
+            if 'imagem' in request.FILES:
+                import tempfile
+                file_obj = request.FILES['imagem']
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as tmp:
+                    for chunk in file_obj.chunks():
+                        tmp.write(chunk)
+                    tmp_path = tmp.name
+
+                resultado = detector_ia.processar_frame(tmp_path, rois_vagas=rois_cidade_jardim)
+                return JsonResponse({'status': 'success', 'resultado': resultado})
+
+            return JsonResponse({'status': 'error', 'message': 'Nenhuma imagem enviada.'}, status=400)
+
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+    return JsonResponse({'status': 'error', 'message': 'Método não permitido.'}, status=405)
