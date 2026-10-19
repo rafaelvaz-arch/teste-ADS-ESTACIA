@@ -1,7 +1,72 @@
 function PagamentoApp() {
   const [method, setMethod] = React.useState('pix'); // 'pix' ou 'cartao'
   const [screen, setScreen] = React.useState('payment'); // 'payment' ou 'success'
-  const [timeLeft, setTimeLeft] = React.useState(20 * 60); // 20 minutos em segundos (1200)
+  const [timeLeft, setTimeLeft] = React.useState(20 * 60); // 20 minutos em segundos
+
+// Captura os parâmetros enviados na URL
+const urlParams = new URLSearchParams(window.location.search);
+const idUrl = urlParams.get('id') || urlParams.get('id_estadia') || 7;
+const valorUrl = urlParams.get('valor') || 1.98;
+const tempoUrl = urlParams.get('tempo') || '0h 14m';
+
+// Dados da estadia atual 
+const [idEstadia] = React.useState(Number(idUrl));
+const [valorTotal] = React.useState(Number(valorUrl));
+const [tempoPermanencia] = React.useState(tempoUrl);
+
+  // Estados do Pix
+  const [qrCodeBase64, setQrCodeBase64] = React.useState('');
+  const [pixCopiaECola, setPixCopiaECola] = React.useState('');
+  const [loadingPix, setLoadingPix] = React.useState(false);
+  const [erroPix, setErroPix] = React.useState('');
+
+  // Estados do Cartão
+  const [cartaoDados, setCartaoDados] = React.useState({
+    numero: '',
+    validade: '',
+    cvv: '',
+    nome: ''
+  });
+  const [loadingCartao, setLoadingCartao] = React.useState(false);
+  const [erroCartao, setErroCartao] = React.useState('');
+
+  // 1. Gerar o QR Code Pix assim que o componente carrega
+  React.useEffect(() => {
+    const gerarPixAutomatico = async () => {
+      setLoadingPix(true);
+      setErroPix('');
+      try {
+        const response = await fetch('http://localhost:3000/api/v1/pagamentos/pix/gerar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id_estadia: idEstadia,
+            valor: valorTotal,
+            email: 'cliente@estacia.com',
+            nome: 'Cliente',
+            apelido: 'Estacia',
+            cpf: '05748832151'
+          })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          setQrCodeBase64(data.qr_code_base64 || '');
+          setPixCopiaECola(data.qr_code || '');
+        } else {
+          setErroPix(data.error || 'Erro ao gerar o Pix.');
+        }
+      } catch (err) {
+        console.error('Erro na requisição Pix:', err);
+        setErroPix('Não foi possível ligar ao servidor.');
+      } finally {
+        setLoadingPix(false);
+      }
+    };
+
+    gerarPixAutomatico();
+  }, [idEstadia, valorTotal]);
 
   // Cronômetro regressivo ativado ao entrar na tela de sucesso
   React.useEffect(() => {
@@ -27,10 +92,68 @@ function PagamentoApp() {
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
+  // Copiar código Pix para a área de transferência
   const handleCopyPix = () => {
-    const code = "PIX0000000000000000000000000000";
-    navigator.clipboard.writeText(code);
+    if (!pixCopiaECola) {
+      alert("O código PIX ainda está a ser gerado...");
+      return;
+    }
+    navigator.clipboard.writeText(pixCopiaECola);
     alert("Código PIX copiado com sucesso!");
+  };
+
+  // Confirmar Pix e atualizar o Supabase antes de ir para a tela de Sucesso
+  const handleConfirmPix = async () => {
+    try {
+      const response = await fetch('http://localhost:3000/api/v1/pagamentos/confirmar-manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id_estadia: idEstadia,
+          metodo_pagamento: 'PIX'
+        })
+      });
+
+      if (response.ok) {
+        setScreen('success');
+      } else {
+        alert('Erro ao atualizar estado no banco de dados.');
+      }
+    } catch (err) {
+      console.error('Erro ao confirmar Pix:', err);
+      alert('Erro ao ligar ao servidor.');
+    }
+  };
+
+  // Processar pagamento com Cartão de Crédito
+  const handleProcessCartao = async (e) => {
+    e.preventDefault();
+    setLoadingCartao(true);
+    setErroCartao('');
+
+    try {
+      const response = await fetch('http://localhost:3000/api/v1/pagamentos/cartao/processar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id_estadia: idEstadia,
+          valor: valorTotal
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.status === 'approved') {
+        setScreen('success');
+      } else {
+        setErroCartao(data.error || 'Pagamento recusado.');
+      }
+    } catch (err) {
+      console.error('Erro ao processar cartão:', err);
+      setErroCartao('Erro ao ligar ao servidor de pagamentos.');
+    } finally {
+      setLoadingCartao(false);
+    }
   };
 
   const handleFinish = () => {
@@ -59,11 +182,11 @@ function PagamentoApp() {
             <div className="summary-card">
               <div className="summary-row">
                 <span className="summary-label">Tempo de permanência</span>
-                <span className="summary-time">0h 14m</span>
+                <span className="summary-time">{tempoPermanencia}</span>
               </div>
               <div className="summary-row total-row">
                 <span className="total-label">Total a pagar</span>
-                <span className="total-price">R$ 1,98</span>
+                <span className="total-price">R$ {valorTotal.toFixed(2).replace('.', ',')}</span>
               </div>
             </div>
 
@@ -97,8 +220,18 @@ function PagamentoApp() {
             {method === 'pix' && (
               <div className="method-content">
                 <div className="pix-card">
-                  <div className="qr-code-placeholder">
-                    <span>QR CODE PIX</span>
+                  <div className="qr-code-placeholder" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                    {loadingPix ? (
+                      <span style={{ color: '#fff', fontSize: '14px' }}>A gerar QR Code...</span>
+                    ) : qrCodeBase64 ? (
+                      <img
+                        src={`data:image/png;base64,${qrCodeBase64}`}
+                        alt="QR Code Pix"
+                        style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '12px' }}
+                      />
+                    ) : (
+                      <span style={{ color: '#ff6b6b', fontSize: '13px' }}>{erroPix || 'QR CODE PIX'}</span>
+                    )}
                   </div>
                   <p className="pix-instructions">Escaneie o QR Code com seu app de pagamento</p>
                 </div>
@@ -109,7 +242,7 @@ function PagamentoApp() {
                     <input
                       type="text"
                       className="input-field readonly-field"
-                      value="PIX0000000000000000000000000000"
+                      value={pixCopiaECola || "A gerar código PIX..."}
                       readOnly
                     />
                     <button type="button" className="btn-copy" onClick={handleCopyPix}>
@@ -124,7 +257,7 @@ function PagamentoApp() {
                 <button
                   type="button"
                   className="btn-submit btn-green"
-                  onClick={() => setScreen('success')}
+                  onClick={handleConfirmPix}
                 >
                   Confirmar Pagamento PIX
                 </button>
@@ -133,36 +266,66 @@ function PagamentoApp() {
 
             {/* Conteúdo Cartão */}
             {method === 'cartao' && (
-              <div className="method-content">
+              <form onSubmit={handleProcessCartao} className="method-content">
+                {erroCartao && <p style={{ color: 'red', fontSize: '13px', marginBottom: '8px' }}>{erroCartao}</p>}
+                
                 <div className="input-group">
                   <label className="input-label">Número do Cartão</label>
-                  <input type="text" className="input-field" placeholder="0000 0000 0000 0000" />
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="0000 0000 0000 0000"
+                    value={cartaoDados.numero}
+                    onChange={(e) => setCartaoDados({ ...cartaoDados, numero: e.target.value })}
+                    required
+                  />
                 </div>
 
                 <div className="input-grid">
                   <div className="input-group">
                     <label className="input-label">Validade</label>
-                    <input type="text" className="input-field" placeholder="MM/AA" />
+                    <input
+                      type="text"
+                      className="input-field"
+                      placeholder="MM/AA"
+                      value={cartaoDados.validade}
+                      onChange={(e) => setCartaoDados({ ...cartaoDados, validade: e.target.value })}
+                      required
+                    />
                   </div>
                   <div className="input-group">
                     <label className="input-label">CVV</label>
-                    <input type="text" className="input-field" placeholder="123" />
+                    <input
+                      type="text"
+                      className="input-field"
+                      placeholder="123"
+                      value={cartaoDados.cvv}
+                      onChange={(e) => setCartaoDados({ ...cartaoDados, cvv: e.target.value })}
+                      required
+                    />
                   </div>
                 </div>
 
                 <div className="input-group">
                   <label className="input-label">Nome no Cartão</label>
-                  <input type="text" className="input-field" placeholder="NOME COMPLETO" />
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="NOME COMPLETO"
+                    value={cartaoDados.nome}
+                    onChange={(e) => setCartaoDados({ ...cartaoDados, nome: e.target.value })}
+                    required
+                  />
                 </div>
 
                 <button
-                  type="button"
+                  type="submit"
                   className="btn-submit btn-blue"
-                  onClick={() => setScreen('success')}
+                  disabled={loadingCartao}
                 >
-                  Pagar R$ 1,98
+                  {loadingCartao ? 'A processar...' : `Pagar R$ ${valorTotal.toFixed(2).replace('.', ',')}`}
                 </button>
-              </div>
+              </form>
             )}
           </div>
 
@@ -185,6 +348,7 @@ function PagamentoApp() {
           </div>
         </div>
       ) : (
+        /* Tela de Sucesso */
         <div className="success-wrapper">
           <div className="success-card">
             <div className="success-checkmark">

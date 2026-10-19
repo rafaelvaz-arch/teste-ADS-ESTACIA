@@ -47,6 +47,47 @@ function MonitoramentoApp() {
     };
   }, []);
 
+// Busca inicial + Escuta em tempo real da tabela 'estadias'
+useEffect(() => {
+  if (!supabase) return;
+
+  // 1. Consulta o estado atual da base de dados assim que a tela abre/recarrega
+  async function carregarStatusInicial() {
+    const { data } = await supabase
+      .from('estadias')
+      .select('status_pagamento')
+      .eq('id_estadia', 7) // Substitui '7' pela tua variável de ID se for dinâmica
+      .single();
+
+    if (data && data.status_pagamento === 'PAGO') {
+      setVagaStatus('PAGA / CONCLUÍDA');
+    }
+  }
+
+  carregarStatusInicial();
+
+  // 2. Escuta alterações em tempo real via WebSocket
+  const estadiasChannel = supabase
+    .channel('estadias-realtime')
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'estadias' },
+      (payload) => {
+        console.log('⚡ EVENTO REALTIME RECEBIDO:', payload.new);
+        if (payload.new && payload.new.status_pagamento === 'PAGO') {
+          setVagaStatus('PAGA / CONCLUÍDA');
+        }
+      }
+    )
+    .subscribe((status) => {
+      console.log('📡 Status da conexão Realtime:', status);
+    });
+
+  return () => {
+    supabase.removeChannel(estadiasChannel);
+  };
+}, []);
+
   return (
     <div className="w-full max-w-md sm:max-w-lg app-card rounded-[32px] border border-white/20 shadow-2xl p-4 sm:p-6 flex flex-col gap-4 text-slate-800 font-sans mx-auto">
       
@@ -156,7 +197,7 @@ function MonitoramentoApp() {
       {/* Botão de Pagamento */}
       <div className="flex flex-col gap-2 mt-1">
         <button
-          onClick={() => window.location.href = "pagamento.html"}
+          onClick={() => window.location.href = `pagamento.html?id=7&valor=${amount}&tempo=${encodeURIComponent(`0h ${minutes}m`)}`}
           className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-2xl py-3.5 text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
