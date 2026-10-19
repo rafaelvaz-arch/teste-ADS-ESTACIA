@@ -25,7 +25,7 @@ A busca por vagas em estacionamentos de shopping centers costuma gerar congestio
 
 ## Solução proposta
 
-O EstacIA é uma aplicação web e mobile responsiva e intuitiva que oferece navegação integrada para localização rápida de vagas livres, além de permitir check-in e pagamento simplificados direto pelo navegador. Voltado para motoristas frequentadores de shoppings e administradores de estacionamentos, o sistema entrega valor ao reduzir drasticamente o tempo gasto procurando vagas, eliminar filas físicas nos guichês e elevar o nível de satisfação e conveniência da jornada do consumidor.
+O EstacIA é uma aplicação web e mobile responsiva e intuitiva que oferece navegação integrada para localização rápida de vagas livres, além de permitir check-in e pagamento simplificados direto pelo navegador. Voltado para motoristas frequentadores de shoppings, o sistema entrega valor ao reduzir drasticamente o tempo gasto procurando vagas, eliminar filas físicas nos guichês e elevar o nível de satisfação e conveniência da jornada do consumidor.
 
 ## Estrutura deste repositório
 
@@ -56,6 +56,8 @@ ADS-ESTACIA/
 ├── setores.html          # Visualização de vagas e disponibilidade por setor
 ├── monitoramento.html    # Painel de controle e checkout de ticket
 └── README.md             # Documentação principal do repositório
+
+```
 
 ## Tecnologias Utilizadas
 
