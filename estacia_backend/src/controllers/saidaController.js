@@ -1,10 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
-
-// Instância do cliente Supabase com a Service Role Key (para permissões totais)
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+import { supabase } from '../config/supabaseClient.js';
 
 export async function validarSaida(req, res) {
   const { id_estadia } = req.body;
