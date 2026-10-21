@@ -3,20 +3,27 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Encontre meu Carro</title>
+  <title>Encontre Meu Carro - ADS-ESTACIA</title>
 
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <link rel="stylesheet" href="css/encontremeucarro.css" />
-
+  <!-- React 18 (UMD) -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+  <!-- Babel Standalone -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Three.js e OrbitControls (carregados ANTES do componente React) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head>
-<body class="bg-gradient-to-b from-[#0a52be] via-[#0d2a6b] to-[#091533] min-h-screen flex items-center justify-center p-3 sm:p-6">
+<body class="bg-gray-900 text-white min-h-screen">
 
-  <div id="root" class="w-full flex justify-center"></div>
+  <div id="root"></div>
 
+  <!-- Componente React Principal -->
   <script type="text/babel" src="js/encontremeucarro.jsx"></script>
 
 </body>
