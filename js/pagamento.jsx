@@ -156,9 +156,71 @@ const [tempoPermanencia] = React.useState(tempoUrl);
     }
   };
 
-  const handleFinish = () => {
+const handleFinish = async () => {
+  try {
+    const SUPABASE_URL = "https://mktgawqrfggmfnqcwvsm.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_SiOuuGYOJ08WYyczoUTvUA_6yasNb3Z";
+
+    // 1. Tenta atualizar via SDK se estiver disponível no HTML
+    if (window.supabase) {
+      const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      
+      // Atualiza a vaga A-145 para LIVRE
+      await supabaseClient
+        .from('vagas')
+        .update({ status: 'LIVRE' })
+        .eq('codigo_vaga', 'A-145');
+
+      // Reseta o status da estadia atual
+      await supabaseClient
+        .from('estadias')
+        .update({
+          status_pagamento: 'PENDENTE',
+          data_hora_pagamento: null,
+          metodo_pagamento: null
+        })
+        .eq('id_estadia', idEstadia);
+
+    } else {
+      // 2. Se o script do Supabase não estiver no HTML, faz requisições HTTP diretas à API REST
+      
+      // Atualiza a vaga A-145
+      await fetch(`${SUPABASE_URL}/rest/v1/vagas?codigo_vaga=eq.A-145`, {
+        method: 'PATCH',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify({ status: 'LIVRE' })
+      });
+
+      // Reseta a estadia
+      await fetch(`${SUPABASE_URL}/rest/v1/estadias?id_estadia=eq.${idEstadia}`, {
+        method: 'PATCH',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify({
+          status_pagamento: 'PENDENTE',
+          data_hora_pagamento: null,
+          metodo_pagamento: null
+        })
+      });
+    }
+
+    console.log('✅ Vaga A-145 e estadia atualizadas com sucesso!');
+  } catch (err) {
+    console.error('Erro ao finalizar sessão no banco:', err);
+  } finally {
+    // 3. Só redireciona APÓS as requisições serem finalizadas
     window.location.href = "principal.html";
-  };
+  }
+};
 
   return (
     <div className="card-container">
