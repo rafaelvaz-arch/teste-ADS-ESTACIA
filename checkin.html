@@ -3,10 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Check-in</title>
+  <title>Check-in - EstacIA</title>
 
   <!-- Tailwind CSS via CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Leitor leve e rápido de QR Code (jsQR) -->
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 
   <!-- CSS Específico do Check-in -->
   <link rel="stylesheet" href="css/checkin.css" />
@@ -15,13 +18,22 @@
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    @keyframes scan {
+      0%, 100% { top: 10%; }
+      50% { top: 85%; }
+    }
+    .animate-scan-line {
+      animation: scan 2s ease-in-out infinite;
+    }
+  </style>
 </head>
 <body class="bg-gradient-to-b from-[#0a52be] via-[#0d2a6b] to-[#091533] min-h-screen flex items-center justify-center p-3 sm:p-6">
 
-  <div id="root" class="w-full flex justify-center"></div>
+  <div id="root" class="w-full max-w-md sm:max-w-lg"></div>
 
-  <!-- Script React do Check-in -->
+  <!-- Carrega o componente React do Check-in -->
   <script type="text/babel" src="js/checkin.jsx"></script>
-
 </body>
 </html>

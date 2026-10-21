@@ -1,22 +1,108 @@
-const { useState } = React;
+const { useState, useEffect, useRef } = React;
+
+// Helper para normalizar a placa (remove hífens, espaços e deixa maiúsculo)
+const normalizarPlaca = (str) => str ? str.replace(/[^a-zA-Z0-9]/g, '').toUpperCase() : '';
 
 function CheckinApp() {
   const [step, setStep] = useState("scan"); // "scan" | "form"
   const [idType, setIdType] = useState("placa"); // "placa" | "chassi"
-  const [inputValue, setInputValue] = useState("ABC-1234");
+  const [inputValue, setInputValue] = useState("ABC1234");
+  const [vagaLida, setVagaLida] = useState("Setor A - Vaga 145");
+  const videoRef = useRef(null);
+  const canvasRef = useRef(document.createElement("canvas"));
+
+  // Inicia a câmera nativa com suporte robusto para navegadores móveis
+  useEffect(() => {
+    let streamInstance = null;
+    let animationFrameId = null;
+
+    if (step === "scan") {
+      const constraints = {
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      };
+
+      navigator.mediaDevices?.getUserMedia(constraints)
+        .then((stream) => {
+          streamInstance = stream;
+          const video = videoRef.current;
+          if (video) {
+            video.srcObject = stream;
+            video.setAttribute("playsinline", true); // Garante suporte total no Chrome/Safari mobile
+            
+            video.play().then(() => {
+              // Inicia a leitura do QR Code apenas após o vídeo começar a rodar
+              const scanQRCode = () => {
+                if (video && video.readyState === video.HAVE_ENOUGH_DATA && video.videoWidth > 0) {
+                  const canvas = canvasRef.current;
+                  canvas.width = video.videoWidth;
+                  canvas.height = video.videoHeight;
+                  const ctx = canvas.getContext("2d");
+                  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                  if (window.jsQR) {
+                    const code = window.jsQR(imageData.data, imageData.width, imageData.height, {
+                      inversionAttempts: "dontInvert",
+                    });
+
+                    if (code && code.data) {
+                      console.log("QR Code detectado:", code.data);
+                      setVagaLida(code.data);
+                      setStep("form");
+                      return; // Interrompe o loop ao ler
+                    }
+                  }
+                }
+                animationFrameId = requestAnimationFrame(scanQRCode);
+              };
+
+              animationFrameId = requestAnimationFrame(scanQRCode);
+            }).catch(err => console.warn("Erro ao iniciar reprodução do vídeo:", err));
+          }
+        })
+        .catch((err) => {
+          console.warn("Acesso à câmera indisponível:", err);
+        });
+    }
+
+    return () => {
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      if (streamInstance) {
+        streamInstance.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [step]);
 
   const handleFinishScan = () => {
     setStep("form");
   };
 
-  const handleConfirmCheckin = () => {
-    // Redireciona para a tela de monitoramento após confirmar
-    window.location.href = "monitoramento.html";
+  const handleConfirmCheckin = async () => {
+    const valorLimpo = idType === "placa" ? normalizarPlaca(inputValue) : inputValue.trim().toUpperCase();
+
+    if (!valorLimpo) {
+      alert("Por favor, informe um valor válido.");
+      return;
+    }
+
+    const dadosCheckin = {
+      plate: valorLimpo,
+      vaga: vagaLida || "Setor A - Vaga 145",
+      checkin_time: new Date().toISOString(),
+      status: "Ativo"
+    };
+
+    localStorage.setItem('active_checkin', JSON.stringify(dadosCheckin));
+    window.location.href = 'monitoramento.html';
   };
 
   const handleTypeChange = (type) => {
     setIdType(type);
-    setInputValue(type === "placa" ? "ABC-1234" : "9BWZZZ377VT004251");
+    setInputValue(type === "placa" ? "ABC1234" : "9BWZZZ377VT004251");
   };
 
   return (
@@ -43,21 +129,26 @@ function CheckinApp() {
         <div className="flex flex-col gap-4">
           <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm text-center flex flex-col items-center">
             <h2 className="text-base font-extrabold text-slate-900">Check-in na Vaga</h2>
-            <p className="text-xs text-slate-400 mt-1">Escaneie o QR Code da vaga e registre seu veículo</p>
+            <p className="text-xs text-slate-400 mt-1">Aponte a câmera para o QR Code da vaga</p>
 
             <div className="my-6 relative aspect-square w-full max-w-[220px] rounded-2xl bg-slate-950 overflow-hidden flex items-center justify-center border border-slate-800 shadow-inner">
-              <div className="absolute inset-4 border-2 border-dashed border-white/30 rounded-xl pointer-events-none" />
-              <div className="absolute left-4 right-4 h-0.5 bg-blue-500 shadow-[0_0_12px_#3b82f6] animate-scan-line" />
-              <svg className="w-20 h-20 text-white/80" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M3 3h6v6H3V3zm2 2v2h2V5H5zm8-2h6v6h-6V3zm2 2v2h2V5h-2zM3 13h6v6H3v-6zm2 2v2h2v-2H5zm13-2h1v2h-1v-2zm-3 0h2v1h-2v-1zm1 3h2v3h-2v-3zm2 1h1v2h-1v-2zm-3 1h1v1h-1v-1zm1 1h2v1h-2v-1zm-4-4h1v1h-1v-1zm0 2h1v2h-1v-2zm-2-2h1v1h-1v-1zm0 2h1v1h-1v-1z"/>
-              </svg>
+              <video 
+                ref={videoRef} 
+                autoPlay 
+                playsInline 
+                muted
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+              <div className="absolute inset-4 border-2 border-dashed border-white/40 rounded-xl pointer-events-none z-10" />
+              {/* Linha animada do scanner */}
+              <div className="absolute left-4 right-4 h-0.5 bg-blue-500 shadow-[0_0_12px_#3b82f6] animate-scan-line z-10" />
             </div>
 
             <button
               onClick={handleFinishScan}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-xl py-3 text-xs font-bold shadow-md transition-all"
             >
-              Simular Leitura Concluída
+              Simular Leitura Concluída (Vaga 145)
             </button>
           </div>
         </div>
@@ -65,11 +156,9 @@ function CheckinApp() {
 
       /* ETAPA 2: REGISTRO DE PLACA / CHASSI */
         <div className="flex flex-col gap-4">
-          
-          {/* Card Superior com Confirmação da Vaga */}
           <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm text-center flex flex-col items-center">
             <h2 className="text-base font-extrabold text-slate-900">Check-in na Vaga</h2>
-            <p className="text-xs text-slate-400 mt-1">Escaneie o QR Code da vaga e registre seu veículo</p>
+            <p className="text-xs text-slate-400 mt-1">QR Code lido com sucesso!</p>
 
             <div className="my-5 flex flex-col items-center">
               <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-2">
@@ -77,8 +166,8 @@ function CheckinApp() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <span className="text-[11px] text-slate-400 font-medium">Vaga escaneada</span>
-              <span className="text-2xl font-black text-blue-600">A-145</span>
+              <span className="text-[11px] text-slate-400 font-medium">Vaga identificada</span>
+              <span className="text-xl font-black text-blue-600">{vagaLida}</span>
             </div>
 
             <button
@@ -89,7 +178,6 @@ function CheckinApp() {
             </button>
           </div>
 
-          {/* Form de Identificação */}
           <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm flex flex-col gap-4">
             <div>
               <label className="text-xs font-bold text-slate-900 block mb-2">Tipo de Identificação</label>
@@ -127,7 +215,8 @@ function CheckinApp() {
                 type="text"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                className="w-full bg-slate-100 border border-slate-200/80 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder={idType === "placa" ? "Ex: ABC1234" : "Informe o Chassi"}
+                className="w-full bg-slate-100 border border-slate-200/80 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
               />
             </div>
 
