@@ -1,37 +1,34 @@
+[sprint_planning_report.md](https://github.com/user-attachments/files/33819838/sprint_planning_report.md)
 # Sprint 00 - Planejamento
 
 ## Contexto
-
-Descreva o ponto de partida da disciplina, as restrições iniciais, as premissas conhecidas e o escopo que motivou a organização da sprint de planejamento.
+Início da disciplina e estruturação do projeto **EstacIA**. Necessidade de alinhar o escopo inicial, metodologias ágeis de desenvolvimento e estratégias para superação de restrições de infraestrutura (redes acadêmicas, Firewalls e suporte a PWA/IA).
 
 ## Equipe
-
-Liste os participantes, a turma, a disciplina e demais informações relevantes para identificar o grupo responsável.
-
-## Papéis
-
-Registre os papéis assumidos pelo grupo, como responsável por produto, facilitação, documentação, desenvolvimento, validação ou comunicação.
+* **Integrantes:** [Kauan Rodrigues; Larissa Vargas; Letícia Araújo; Rafael Machado ]
+* **Turma / Disciplina:** [Análise e Desenvolvimento de Sistemas- matutino]
+* **Instituição:** Centro Universitário de Brasília- CEUB
 
 ## Cadência escolhida
-
-Explique a duração da sprint, a frequência de checkpoints, os momentos de revisão e o formato de acompanhamento adotado.
+Sprints semanais/quinzenais, com checkpoints diários/periódicos para acompanhamento de impedimentos no Kanban do GitHub/Trello e momentos de revisão ao final de cada entrega funcional.
 
 ## Problema
-
-Explique o desafio principal que a equipe precisa resolver durante o ciclo inicial de organização.
+Falta de alinhamento inicial da equipe em relação à visão do produto, arquitetura técnica e fluxo de validação de funcionalidades críticas (como leitor de QR Code, navegação indoor e integração PWA/IA).
 
 ## Objetivo
-
-Defina o resultado esperado para encerrar o planejamento com clareza e critério verificável.
+Estabelecer as bases metodológicas, definir o papel de cada membro, priorizar o backlog inicial e garantir a infraestrutura de desenvolvimento alinhada com as necessidades do projeto.
 
 ## Riscos
-
-Liste os riscos iniciais, as dependências, as restrições de prazo, as lacunas de conhecimento ou os fatores que possam comprometer a execução.
+* Restrições de rede acadêmica (Isolamento de AP / Firewall) afetando os testes em dispositivos móveis.
+* Complexidade no treinamento de modelos de visão computacional (YOLOv8) e integração indoor.
+* Curva de aprendizado de ferramentas (Supabase, Babel in-browser, PWA).
 
 ## Backlog inicial
-
-Relacione os itens priorizados para o início do trabalho, com breve descrição e referência para as `issues`, quando existirem.
+1. Alinhamento da proposta de valor do projeto **Estácia**.
+2. Configuração do ambiente de desenvolvimento e repositório Git.
+3. Definição do fluxo do leitor de QR Code para check-in.
 
 ## Acordos de trabalho
+* Comunicação via [WhatsApp/Googlemeet/Encontros pessoais].
+* *Definition of Done (DoD)*: Código testado em dispositivo móvel, revisado via PR e integrado na branch `main` sem conflitos.
 
-Documente os combinados de comunicação, a definição de pronto, a revisão, o registro de evidências e os critérios de colaboração da equipe.
