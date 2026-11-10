@@ -1,4 +1,9 @@
 // js/login.js
+// Salva a sessão no navegador após a validação
+localStorage.setItem('usuarioLogado', JSON.stringify(usuario));
+
+// Redireciona para a página principal
+window.location.href = 'principal.html';
 
 document.getElementById('formLogin').addEventListener('submit', async (e) => {
   e.preventDefault();
