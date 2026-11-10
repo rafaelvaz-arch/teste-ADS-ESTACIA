@@ -1,9 +1,4 @@
 // js/login.js
-// Salva a sessão no navegador após a validação
-localStorage.setItem('usuarioLogado', JSON.stringify(usuario));
-
-// Redireciona para a página principal
-window.location.href = 'principal.html';
 
 document.getElementById('formLogin').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -45,8 +40,7 @@ document.getElementById('formLogin').addEventListener('submit', async (e) => {
     window.location.href = 'principal.html';
 
   } catch (err) {
-    console.error('Erro no login:', err);
-    alert('Ocorreu um erro ao tentar entrar. Verifique o console.');
+    alert('Erro inesperado: ' + err.message);
     btnEntrar.textContent = 'Entrar';
     btnEntrar.disabled = false;
   }
