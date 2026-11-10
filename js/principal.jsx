@@ -1,8 +1,17 @@
-import React, { useState } from 'react';
+// js/principal.jsx
+import React, { useEffect, useState } from 'react';
+
 
 export function TelaPrincipal() {
   const [dropdownAberto, setDropdownAberto] = useState(false);
   const [shoppingSelecionado, setShoppingSelecionado] = useState('Brasilia Shopping');
+
+  useEffect(() => {
+    const usuario = localStorage.getItem('usuarioLogado');
+    if (!usuario) {
+      window.location.href = 'index.html';
+    }
+  }, []);
 
   const shoppings = [
     'Shopping Center - Bloco A',
@@ -12,11 +21,20 @@ export function TelaPrincipal() {
     'Mega Center'
   ];
 
+  const handleLogout = () => {
+    localStorage.removeItem('usuarioLogado');
+  };
+
   return (
     <main className="container" data-model-id="60:771">
       
       {/* Botão Sair / Voltar */}
-      <a href="index.html" className="button" aria-label="Sair e voltar para o login">
+      <a 
+        href="index.html" 
+        onClick={handleLogout} 
+        className="button" 
+        aria-label="Sair e voltar para o login"
+      >
         <img src="https://c.animaapp.com/YpraINo5/img/button.svg" alt="Sair" />
       </a>
 

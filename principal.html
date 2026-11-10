@@ -8,6 +8,14 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   
+  <!-- principal.html -->
+  <script>
+    const usuario = localStorage.getItem('usuarioLogado');
+    if (!usuario) {
+    window.location.href = 'index.html';
+    }
+  </script>
+  
   <style>
     * {
       box-sizing: border-box;
