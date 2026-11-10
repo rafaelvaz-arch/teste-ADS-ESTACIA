@@ -8,11 +8,11 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   
-  <!-- principal.html -->
   <script>
+    // Usa exatamente a mesma chave gravada pelo login.js
     const usuario = localStorage.getItem('usuarioLogado');
     if (!usuario) {
-    window.location.href = 'index.html';
+      window.location.href = 'index.html';
     }
   </script>
   
@@ -297,10 +297,10 @@
     <!-- CABEÇALHO DO USUÁRIO -->
     <div class="header-user">
       <div class="user-info">
-        <h2>Olá, Letícia! 👋</h2>
-        <p>leticia.araujoa@sempreceu.com</p>
+        <h2 id="userName">Olá! 👋</h2>
+        <p id="userEmail"></p>
       </div>
-      <a href="index.html" class="logout-btn" title="Sair">
+      <a href="#" onclick="fazerLogout(event)" class="logout-btn" title="Sair">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       </a>
     </div>
@@ -392,6 +392,21 @@
 
   <script>
     window.addEventListener('DOMContentLoaded', () => {
+      // 1. Carrega o nome e e-mail do usuário logado
+      const usuarioSalvo = localStorage.getItem('usuarioLogado');
+      if (usuarioSalvo) {
+        try {
+          const usuario = JSON.parse(usuarioSalvo);
+          const primeiroNome = usuario.nome_completo ? usuario.nome_completo.split(' ')[0] : 'Usuário';
+          
+          document.getElementById('userName').textContent = `Olá, ${primeiroNome}! 👋`;
+          document.getElementById('userEmail').textContent = usuario.email || '';
+        } catch (e) {
+          console.error('Erro ao ler dados do usuário:', e);
+        }
+      }
+
+      // 2. Carrega o shopping selecionado previamente
       const shoppingSalvo = localStorage.getItem('shoppingSelecionado');
       if (shoppingSalvo) {
         document.getElementById('shoppingSelect').value = shoppingSalvo;
@@ -400,6 +415,13 @@
 
     function atualizarShopping(valor) {
       localStorage.setItem('shoppingSelecionado', valor);
+    }
+
+    // 3. Limpa a sessão ao clicar em Sair
+    function fazerLogout(event) {
+      event.preventDefault();
+      localStorage.removeItem('usuarioLogado');
+      window.location.href = 'index.html';
     }
   </script>
 
