@@ -1,495 +1,503 @@
 /* =============================================================================
- * js/encontremeucarro.jsx
- * "Encontre Meu Carro" — rota pedestre 3D (Térreo ⇄ Subsolo SS1)
+ * js/encontremeucarro.jsx — "Encontre meu carro" (rota a pé) · v2
+ *
+ * Mesma base da navegação do carro: cena em METROS, mapa extraído por visão computacional
+ * (assets/mapa_estacia.js) e núcleo compartilhado js/estacia3d.js (A*, pisos, cenário, carro).
+ *
+ * Fluxo: 1) vaga salva (?vaga=, estacia_vaga_destino, check-in ou A-145)
+ *        2) o usuário escolhe onde está
+ *        3) rota a pé: Térreo (trecho autoral) → torre de elevadores/escada rolante → foyer central do
+ *           SS1 → A* pelos corredores até a frente da vaga
+ *        4) card flutuante com o passo a passo, gerado da geometria
+ *
+ * Eixos/escala: x leste, y norte, z para cima; Térreo em z = 0, SS1 em z = -GAP (3,6 m).
+ * Câmera: mesma matemática do modo GPS 3D (rumo suavizado + referencial inclinado), mais baixa e próxima.
  * ========================================================================== */
 (function () {
-  const React = window.React;
-  const ReactDOM = window.ReactDOM;
+  'use strict';
 
-  if (!React || !ReactDOM) {
-    console.error("[encontremeucarro] React ou ReactDOM não encontrados.");
+  if (!window.React || !window.ReactDOM) {
+    const el = document.getElementById('root');
+    if (el) el.textContent = 'Falha ao carregar o React. Verifique a conexão e recarregue a página.';
     return;
   }
+  const { useState, useEffect, useRef, useCallback } = React;
 
-  const { useState, useEffect, useRef, useMemo } = React;
+  let THREE = null;
+  let OrbitControls = null;
+
+  const E3D = window.Estacia3D;
+  if (!E3D) {
+    const el = document.getElementById('root');
+    if (el) el.textContent = 'Falta carregar js/estacia3d.js antes de encontremeucarro.jsx.';
+    return;
+  }
+  const {
+    GAP, LIFT, MIN_CLEAR, pedirVaga, acharVaga, clamp, criarConversores, decodificarGrade, celulaLivreMaisProxima, aEstrela,
+    simplificar, douglasPeucker, colapsarCurtos, buildPoints, idxOf, sampleAt, makeFloor, planeWithHole, makeLabel, makeRing,
+    buildCar, buildCenario,
+  } = E3D;
 
   /* ======================================================================== */
   /* CONFIGURAÇÃO                                                             */
   /* ======================================================================== */
-  const PLANE_W = 56;
-  const PLANE_H = 38;
-  const Z_T = 12.0;
-  const Z_S = -12.0;
-  const LIFT = 0.3; // rota acima do piso (evita z-fighting)
-  const CORNER_R = 1.0;
-  const CAM_MIN_Z = 14; 
-  const M_PER_UNIT = 3.2; 
-  const WALK_SPEED = 1.3; // m/s
-  const BACK_URL = 'monitoramento.html'; // Redirecionamento fixo para a tela de monitoramento
-  const TICKET_KEYS = ['estacia_ticket', 'ticket', 'ticketAtivo'];
+  const VAGA_ID = pedirVaga();
+  const PAVIMENTO = 'Subsolo SS1';
+  const BACK_URL = 'monitoramento.html';
+  const MAPA_URL = 'assets/mapa_estacia.json';
 
-  const FLOORS = {
-    terreo: { w: 1600, h: 872, url: 'assets/planta_terreo.png', z: Z_T },
-    subsolo: { w: 1280, h: 720, url: 'assets/planta_subsolo.png', z: Z_S },
-  };
+  const WALK_SPEED = 1.35; // m/s
+  const CORNER_R = 1.8;
+  const SAMPLES = 900;
+  const TUBE_R = 0.14, TUBE_SEGS = 800, TUBE_RADIAL = 8;
+  const FADE_LOW = 0.12, FADE_TOP = 0.88;
+  const CHASE = { back: 9, height: 6.5, ahead: 4.5, look: 10, curveLook: 18, tilt: 0.4 };
+  const FOV_FOLLOW = 55, FOV_OVERVIEW = 40;
+  const SPEEDS = [1, 2, 4];
 
-  const toWorld = (floor, x, y) => ({
-    x: (x / FLOORS[floor].w - 0.5) * PLANE_W,
-    y: (0.5 - y / FLOORS[floor].h) * PLANE_H,
-    z: FLOORS[floor].z + LIFT,
-  });
-  const T = (x, y) => toWorld('terreo', x, y);
-  const S = (x, y) => toWorld('subsolo', x, y);
+  /* Torre de elevadores do Térreo (E1/E2) que desce ao foyer central do SS1. Pixels da planta do Térreo.
+   * (A torre leste não é usada: na planta ela fica a ~30 m do núcleo leste do SS1 — vide docs/PIPELINE_CV.md.) */
+  const TORRE_TERREO_PX = [538, 325];
 
-  const HUBS = {
-    escada: { nome: 'escadas rolantes', unico: 'a escada rolante', s: S(625, 335), dy: -3 },
-    elevador: { nome: 'elevadores', unico: 'o elevador', s: S(586, 335), dy: -0.25 },
-  };
-
+  /* Pontos de partida (pixels da planta do Térreo). `via` = pontos intermediários. A planta não tem Cinemas. */
   const ORIGENS = [
-    { id: 'entrada-principal', label: 'Entrada Principal', hint: 'Acesso oeste (noite)',
-      path: [[215, 428], [560, 428], [690, 480]],
-      go: 'Entre pelo eixo principal e siga direto pela Praça Central, em direção às escadas rolantes.' },
-    { id: 'entrada-sul', label: 'Entrada Sul', hint: 'Porte-cochère', south: true,
-      path: [[808, 640], [808, 560], [786, 520]],
-      go: 'Siga em frente pela entrada sul, em direção ao átrio, onde ficam as escadas rolantes.' },
-    { id: 'entrada-leste', label: 'Entrada Leste', hint: 'Acesso leste',
-      path: [[1405, 430], [1060, 430], [900, 480]],
-      go: 'Atravesse a Praça do Fogo e siga reto em direção ao átrio, onde ficam as escadas rolantes.' },
-    { id: 'praca-alimentacao', label: 'Praça de Alimentação', hint: 'Restaurantes e fast food',
-      path: [[1000, 565], [905, 510], [850, 480]],
-      go: 'Saia da praça de alimentação para o lado oeste e siga em direção às escadas rolantes, ao lado do átrio.' },
-    { id: 'ancoras-oeste', label: 'Lojas Âncoras — ala oeste', hint: 'Lojas Americanas / C&A',
-      path: [[385, 345], [560, 420], [690, 480]],
-      go: 'Pegue o corredor da ala oeste, siga em direção à Praça Central e continue até as escadas rolantes.' },
-    { id: 'ancoras-leste', label: 'Lojas Âncoras — ala leste', hint: 'C&A / Riachuelo',
-      path: [[1215, 345], [1060, 420], [900, 480]],
-      go: 'Pegue o corredor da ala leste, siga em direção à Praça Central e continue até as escadas rolantes.' },
-    { id: 'cinemas', label: 'Cinemas', hint: 'Ala leste (posição estimada)',
-      path: [[1130, 300], [1010, 400], [900, 480]],
-      go: 'Desça pelo corredor em direção à Praça Central e siga até as escadas rolantes, no átrio.' },
+    { id: 'entrada-sul', label: 'Entrada Sul (principal)', hint: 'Pórtico / valet', px: [602, 552], via: [[602, 440]],
+      go: 'Entre pelo pórtico e siga em frente pelo saguão sul até a torre de elevadores, ao lado da Praça Central.' },
+    { id: 'entrada-oeste', label: 'Entrada Oeste', hint: 'Acesso oeste do mall', px: [172, 347], via: [[440, 347]],
+      go: 'Siga pelo eixo oeste do mall, passando pela Praça das Águas, até a torre de elevadores.' },
+    { id: 'entrada-leste', label: 'Entrada Leste', hint: 'Acesso leste do mall', px: [1108, 347], via: [[840, 347], [660, 360]],
+      go: 'Siga pelo eixo leste do mall, passando pela Praça do Fogo, e contorne a Praça Central até a torre de elevadores.' },
+    { id: 'praca-alimentacao', label: 'Praça de Alimentação', hint: 'Restaurantes e fast food', px: [700, 470], via: [[640, 405]],
+      go: 'Saia da praça de alimentação para o norte e siga pela Praça Central até a torre de elevadores.' },
+    { id: 'praca-central', label: 'Praça Central / Grande Átrio', hint: 'Café e cúpula de vidro', px: [640, 360], via: [],
+      go: 'A torre de elevadores fica a poucos passos, no lado oeste da Praça Central.' },
+    { id: 'ancora-1', label: 'Âncora 1 — Lojas Americanas', hint: 'Ala noroeste', px: [332, 225], via: [[430, 300]],
+      go: 'Saia pela porta do mall, vire em direção à Praça Central e siga até a torre de elevadores.' },
+    { id: 'ancora-2', label: 'Âncora 2 — C&A', hint: 'Ala sudoeste', px: [332, 470], via: [[430, 395]],
+      go: 'Saia pela porta do mall, vire em direção à Praça Central e siga até a torre de elevadores.' },
+    { id: 'ancora-3', label: 'Âncora 3 — Renner', hint: 'Ala nordeste', px: [948, 225], via: [[850, 300], [660, 335]],
+      go: 'Saia pela porta do mall, siga em direção à Praça Central e contorne-a até a torre de elevadores.' },
+    { id: 'ancora-4', label: 'Âncora 4 — Riachuelo', hint: 'Ala sudeste', px: [948, 470], via: [[850, 395], [660, 380]],
+      go: 'Saia pela porta do mall, siga em direção à Praça Central e contorne-a até a torre de elevadores.' },
   ];
 
-  const VAGAS = {
-    'A-144': { nivel: 'subsolo', px: [425, 214], aisleY: 168 },
-    'A-145': { nivel: 'subsolo', px: [440, 214], aisleY: 168 },
-    'A-146': { nivel: 'subsolo', px: [455, 214], aisleY: 168 },
-    'T-032': { nivel: 'terreo', px: [690, 700] },
-  };
-  const NIVEL_LABEL = { subsolo: 'Subsolo SS1', terreo: 'Térreo' };
-
   /* ======================================================================== */
-  /* DADOS & HELPERS                                                          */
+  /* ROTA A PÉ                                                                */
   /* ======================================================================== */
-  async function carregarVagaSalva() {
-    const q = new URLSearchParams(window.location.search);
-    if (q.get('vaga')) return { vaga: q.get('vaga'), ticket: q.get('ticket'), fonte: 'url' };
-
-    for (const k of TICKET_KEYS) {
-      try {
-        const raw = window.localStorage.getItem(k);
-        if (!raw) continue;
-        const o = JSON.parse(raw);
-        const vaga = o.vaga || o.codigoVaga || o.spot;
-        if (vaga) return { ...o, vaga, fonte: 'ticket' };
-      } catch (e) { }
-    }
-    return { vaga: 'A-145', pavimento: 'SS1', ticket: null, fonte: 'demo' };
-  }
-
-  function resolverVaga(ticket) {
-    const code = String(ticket.vaga || '').trim().toUpperCase();
-    let def = VAGAS[code];
-    if (!def && ticket.coords) {
-      const nivel = /te[rr]reo|térreo/i.test(ticket.pavimento || '') ? 'terreo' : 'subsolo';
-      def = { nivel, px: [ticket.coords.x, ticket.coords.y], aisleY: ticket.coords.aisleY || 168 };
-    }
-    if (!def) return { ok: false, code };
-    const world = def.nivel === 'terreo' ? T(def.px[0], def.px[1]) : S(def.px[0], def.px[1]);
-    return { ok: true, code, nivel: def.nivel, world, def };
-  }
-
-  const near = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) < 1e-3;
-  const len3 = (n) => n.reduce((s, p, i) => (i ? s + Math.hypot(p.x - n[i - 1].x, p.y - n[i - 1].y, p.z - n[i - 1].z) : 0), 0);
-  const lenXY = (n) => n.reduce((s, p, i) => (i ? s + Math.hypot(p.x - n[i - 1].x, p.y - n[i - 1].y) : 0), 0);
-  const lado = (esquerda) => (esquerda ? 'esquerda' : 'direita');
-
-  function montarRota(o, vaga, acessivel) {
-    const hub = acessivel ? HUBS.elevador : HUBS.escada;
-    const code = vaga.code;
-    const secs = [];
-
-    if (vaga.nivel === 'subsolo') {
-      const hs = hub.s;
-      const ht = { x: hs.x, y: hs.y + hub.dy, z: Z_T + LIFT };
-      const cx = S(620, 0).x;
-      const aisle = S(0, vaga.def.aisleY).y;
-      const corr = { x: cx, y: aisle, z: Z_S + LIFT };
-      const sp = vaga.world;
-
-      const s3 = [hs];
-      if (Math.abs(hs.x - cx) > 0.3) s3.push({ x: cx, y: hs.y, z: hs.z });
-      s3.push(corr);
-
-      const dirX = Math.sign(sp.x - cx) || -1;
-      const viraEsq = dirX < 0; 
-      const ladoVaga = dirX * (sp.y - aisle) > 0; 
-
-      secs.push(
-        { nodes: [...o.path.map(([x, y]) => T(x, y)), ht], nivel: 'Térreo',
-          titulo: 'Siga em direção ' + (acessivel ? 'aos elevadores' : 'às escadas rolantes'), detalhe: o.go },
-        { nodes: [ht, hs], nivel: 'Descida',
-          titulo: 'Desça ao ' + NIVEL_LABEL.subsolo,
-          detalhe: 'Use ' + hub.unico + ' para descer um pavimento. Você chega ao foyer central do SS1.' },
-        { nodes: s3, nivel: NIVEL_LABEL.subsolo,
-          titulo: 'Siga pelo corredor central',
-          detalhe: 'Saia do foyer e siga em frente, no sentido norte, até o cruzamento com a Alameda Norte.' },
-        { nodes: [corr, { x: sp.x, y: aisle, z: corr.z }, sp], nivel: NIVEL_LABEL.subsolo,
-          titulo: 'Vaga ' + code + ' à ' + lado(ladoVaga),
-          detalhe: 'Vire à ' + lado(viraEsq) + ' na Alameda Norte e siga até a vaga ' + code + ', que fica à ' + lado(ladoVaga) + '.' }
-      );
-    } else {
-      const sp = vaga.world;
-      const saida = T(808, 640);
-      const aprox = { x: saida.x, y: sp.y, z: saida.z };
-      const viraEsq = sp.x > saida.x; 
-      if (!o.south) {
-        secs.push({
-          nodes: [...o.path.map(([x, y]) => T(x, y)), T(808, 560), saida], nivel: 'Térreo',
-          titulo: 'Siga até a Entrada Sul',
-          detalhe: o.go.replace(/escadas rolantes[^.]*/i, 'Entrada Sul') });
-      }
-      secs.push(
-        { nodes: [saida, aprox], nivel: 'Térreo', titulo: 'Saia para o estacionamento externo',
-          detalhe: 'Atravesse a Entrada Sul e siga em frente pelo estacionamento externo.' },
-        { nodes: [aprox, sp], nivel: 'Térreo', titulo: 'Vaga ' + code + ' à ' + lado(viraEsq),
-          detalhe: 'Vire à ' + lado(viraEsq) + ' e siga até a vaga ' + code + '.' }
-      );
-    }
-
-    const nodes = [];
-    secs.forEach((s) => s.nodes.forEach((p) => { if (!nodes.length || !near(nodes[nodes.length - 1], p)) nodes.push(p); }));
-    const lens = secs.map((s) => len3(s.nodes));
-    const total = lens.reduce((a, b) => a + b, 0);
-    let acc = 0;
-    secs.forEach((s, i) => { s.a = acc / total; acc += lens[i]; s.b = acc / total; });
-
-    const horizontal = secs.reduce((a, s) => a + lenXY(s.nodes), 0);
-    const metros = Math.round(horizontal * M_PER_UNIT + (vaga.nivel === 'subsolo' ? 6 : 0));
-    return { nodes, secs, metros, minutos: Math.max(1, Math.round(metros / WALK_SPEED / 60)), duracao: Math.min(38, Math.max(10, total / 2.2)) };
-  }
-
-  function buildPoints(nodes, radius, step) {
-    const THREEObj = window.THREE;
-    if (!THREEObj) return [];
-    const V = (n) => new THREEObj.Vector3(n.x, n.y, n.z);
-    const out = [];
-    const push = (v) => { if (!out.length || out[out.length - 1].distanceTo(v) > 1e-4) out.push(v); };
-    push(V(nodes[0]));
-    for (let i = 1; i < nodes.length - 1; i++) {
-      const prev = V(nodes[i - 1]), cur = V(nodes[i]), next = V(nodes[i + 1]);
-      const d1 = new THREEObj.Vector2(cur.x - prev.x, cur.y - prev.y);
-      const d2 = new THREEObj.Vector2(next.x - cur.x, next.y - cur.y);
-      const l1 = d1.length(), l2 = d2.length();
-      if (l1 < 1e-3 || l2 < 1e-3) { push(cur); continue; }
-      d1.normalize(); d2.normalize();
-      if (d1.dot(d2) > 0.999) { push(cur); continue; }
-      const r = Math.min(radius, l1 * 0.5, l2 * 0.5);
-      const a = cur.clone().lerp(prev, r / cur.distanceTo(prev));
-      const b = cur.clone().lerp(next, r / cur.distanceTo(next));
-      push(a);
-      for (let k = 1; k < 8; k++) {
-        const t = k / 8;
-        push(new THREEObj.Vector3().addScaledVector(a, (1 - t) * (1 - t)).addScaledVector(cur, 2 * (1 - t) * t).addScaledVector(b, t * t));
-      }
-      push(b);
-    }
-    push(V(nodes[nodes.length - 1]));
-    const dense = [out[0]];
-    for (let i = 1; i < out.length; i++) {
-      const a = out[i - 1], b = out[i];
-      const n = Math.floor(a.distanceTo(b) / step);
-      for (let j = 1; j <= n; j++) { const p = a.clone().lerp(b, j / (n + 1)); if (p.distanceTo(b) > 1e-3) dense.push(p); }
-      dense.push(b);
-    }
-    return dense;
-  }
-
-  /* ======================================================================== */
-  /* THREE.JS HELPERS                                                         */
-  /* ======================================================================== */
-  const setTexSRGB = (t) => { 
-    const THREEObj = window.THREE;
-    if ('colorSpace' in t) t.colorSpace = THREEObj.SRGBColorSpace; else t.encoding = THREEObj.sRGBEncoding; 
+  const angAt = (nodes, k) => { // giro no nó k, em graus (+ = esquerda)
+    const p = nodes[k - 1], c = nodes[k], n = nodes[k + 1];
+    const x1 = c.x - p.x, y1 = c.y - p.y, x2 = n.x - c.x, y2 = n.y - c.y;
+    return Math.atan2(x1 * y2 - y1 * x2, x1 * x2 + y1 * y2) * 57.2958;
   };
 
-  function placeholderTexture(label, w, h) {
-    const THREEObj = window.THREE;
-    const c = document.createElement('canvas'); c.width = w; c.height = h;
-    const g = c.getContext('2d');
-    g.fillStyle = '#1b2430'; g.fillRect(0, 0, w, h);
-    g.strokeStyle = 'rgba(120,160,200,.18)';
-    for (let x = 0; x <= w; x += 40) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke(); }
-    for (let y = 0; y <= h; y += 40) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
-    g.fillStyle = 'rgba(200,225,255,.5)'; g.font = 'bold 46px sans-serif'; g.textAlign = 'center';
-    g.fillText(label, w / 2, h / 2);
-    const t = new THREEObj.CanvasTexture(c); setTexSRGB(t); return t;
-  }
+  function montarRotaPedestre(mapa, origem, acessivel) {
+    const cv = criarConversores(mapa);
+    const vaga = acharVaga(mapa, VAGA_ID);
+    const zT = LIFT, zS = -GAP + LIFT, P = (x, y, z) => ({ x, y, z });
+    const ciano = mapa.subsolo.caixas.filter((c) => c.cor === 'ciano' && Math.abs((c.y0 + c.y1) / 2) < 15).sort((a, b) => a.x0 - b.x0);
+    const foyer = ciano[1]; // núcleo oeste, FOYER CENTRAL, núcleo leste
+    if (!foyer) throw new Error('Não achei o foyer central no mapa.');
+    const cf = [(foyer.x0 + foyer.x1) / 2, (foyer.y0 + foyer.y1) / 2];
+    const tower = cv.terPxToM(TORRE_TERREO_PX[0], TORRE_TERREO_PX[1]);
+    const pts = [origem.px].concat(origem.via || []).map((p) => cv.terPxToM(p[0], p[1]));
+    const terreo = pts.concat([tower]).map((p) => P(p[0], p[1], zT));
+    const iT = terreo.length - 1;
+    const link = acessivel ? [P(tower[0], tower[1], zS), P(cf[0], cf[1], zS)] : [P(cf[0], cf[1], zS)];
+    const iS = iT + link.length;
 
-  function makeFloor(key, label, opacity, order, renderer) {
-    const THREEObj = window.THREE;
-    const f = FLOORS[key];
-    const mat = new THREEObj.MeshBasicMaterial({
-      map: placeholderTexture(label + ' (carregando…)', f.w, f.h),
-      transparent: true, opacity, side: THREEObj.DoubleSide, depthWrite: false,
+    // SS1: A* a partir do foyer; testa as 4 bordas do foyer e fica com o menor caminho
+    const G = decodificarGrade(mapa.subsolo.custo);
+    const cellOf = (X, Y) => { const [sx, sy] = cv.mToSsPx(X, Y); return [Math.floor(sx / G.cell), Math.floor(sy / G.cell)]; };
+    const metersOf = (c) => cv.ssPxToM((c[0] + 0.5) * G.cell, (c[1] + 0.5) * G.cell);
+    const fy = vaga.frente === 'N' ? 1 : -1;
+    const acesso = [vaga.x, vaga.y + fy * (vaga.h / 2 + 2.2)];
+    const goal = celulaLivreMaisProxima(G, ...cellOf(acesso[0], acesso[1]), MIN_CLEAR);
+    const bordas = [[cf[0], foyer.y1 + 1.5], [cf[0], foyer.y0 - 1.5], [foyer.x0 - 1.5, cf[1]], [foyer.x1 + 1.5, cf[1]]];
+    let melhor = null;
+    bordas.forEach((b) => {
+      const s = celulaLivreMaisProxima(G, ...cellOf(b[0], b[1]), MIN_CLEAR);
+      const p = s && goal ? aEstrela(G, s, goal) : null;
+      if (p && (!melhor || p.length < melhor.length)) melhor = p;
     });
-    const mesh = new THREEObj.Mesh(new THREEObj.PlaneGeometry(PLANE_W, PLANE_H), mat);
-    mesh.position.set(0, 0, f.z);
-    mesh.renderOrder = order;
-    new THREEObj.TextureLoader().load(f.url, (tex) => {
-      setTexSRGB(tex); 
-      if (renderer.capabilities) tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-      mat.map = tex; mat.needsUpdate = true;
-    }, undefined, () => console.warn('[encontremeucarro] textura não carregou:', f.url));
-    const frame = new THREEObj.LineSegments(new THREEObj.EdgesGeometry(mesh.geometry),
-      new THREEObj.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.7 }));
-    frame.position.copy(mesh.position); frame.renderOrder = order + 0.5;
-    return [mesh, frame];
+    if (!melhor) throw new Error('A* não encontrou caminho a pé até a vaga ' + VAGA_ID + '.');
+    let simples = simplificar(G, melhor).map((c) => { const m = metersOf(c); return P(m[0], m[1], zS); });
+    simples = colapsarCurtos(douglasPeucker(simples, 0.6), 3.0);
+    while (simples.length > 2 && Math.hypot(simples[simples.length - 1].x - acesso[0], simples[simples.length - 1].y - acesso[1]) < 5) simples.pop();
+    const ss1 = [P(cf[0], cf[1], zS)].concat(simples.filter((p) => Math.hypot(p.x - cf[0], p.y - cf[1]) > 0.5));
+    ss1.push(P(acesso[0], acesso[1], zS));
+    ss1.push(P(vaga.x, vaga.y + fy * (vaga.h / 2 - 0.4), zS)); // para na frente do carro
+
+    const nodes = terreo.concat(link.slice(0, -1), ss1);
+    return { nodes, iT, iS, vaga, foyer, acessivel, origem, fy };
   }
 
-  function makeRing(color, a, b) {
-    const THREEObj = window.THREE;
-    const m = new THREEObj.Mesh(new THREEObj.RingGeometry(a, b, 40),
-      new THREEObj.MeshBasicMaterial({ color, transparent: true, opacity: 0.95, side: THREEObj.DoubleSide, depthWrite: false }));
-    m.renderOrder = 8; return m;
+  function buildModel(rota) {
+    const { nodes, iT, iS, vaga, origem, acessivel } = rota;
+    const pts = buildPoints(nodes, CORNER_R, 2.5);
+    const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal');
+    const N = SAMPLES, P = [], Tg = [];
+    for (let i = 0; i <= N; i++) { P.push(curve.getPointAt(i / N)); Tg.push(curve.getTangentAt(i / N)); }
+    const K = 14, turn = new Float32Array(N + 1);
+    for (let i = 0; i <= N; i++) {
+      const u = Tg[i], v = Tg[Math.min(N, i + K)], lu = Math.hypot(u.x, u.y), lv = Math.hypot(v.x, v.y);
+      if (lu < 1e-4 || lv < 1e-4) continue;
+      turn[i] = clamp(Math.acos(clamp((u.x * v.x + u.y * v.y) / (lu * lv), -1, 1)) / (Math.PI / 2), 0, 1);
+    }
+    const cumM = new Float32Array(N + 1), cumT = new Float32Array(N + 1);
+    for (let i = 1; i <= N; i++) {
+      const dm = P[i].distanceTo(P[i - 1]), dz = Math.abs(P[i].z - P[i - 1].z) / Math.max(dm, 1e-6);
+      let v = WALK_SPEED * (1 - 0.35 * turn[i]);
+      if (dz > 0.05) v = acessivel ? 1.0 : 0.7; // escada rolante / elevador
+      cumM[i] = cumM[i - 1] + dm; cumT[i] = cumT[i - 1] + dm / v;
+    }
+    const total = cumM[N];
+    let from = 0;
+    const markOf = (n) => {
+      const nv = new THREE.Vector3(n.x, n.y, n.z); let best = Infinity, bi = from;
+      for (let i = from; i <= N; i++) { const d = P[i].distanceToSquared(nv); if (d < best) { best = d; bi = i; } }
+      from = bi; return cumM[bi];
+    };
+    const marks = nodes.map(markOf);
+
+    // passo a passo: Térreo -> descida -> trechos do SS1 (curvas a < 12 m formam uma só)
+    const ult = nodes.length - 2, m0 = marks[iT], m1 = marks[iS];
+    const steps = [
+      { nivel: 'Térreo', titulo: 'Siga até a torre de elevadores', detalhe: origem.go, a: 0, b: m0 },
+      { nivel: 'Descida', titulo: 'Desça ao ' + PAVIMENTO,
+        detalhe: acessivel ? 'Pegue o elevador (E1/E2) e desça um pavimento.' : 'Pegue a escada rolante e desça um pavimento (o elevador E1/E2 fica ao lado).', a: m0, b: m1 },
+    ];
+    const cortes = []; // {m, dir}
+    let k = iS + 1;
+    while (k < ult) {
+      let soma = 0, mSum = 0, cnt = 0, j = k;
+      for (;;) { soma += angAt(nodes, j); mSum += marks[j]; cnt++; if (j + 1 < ult && marks[j + 1] - marks[j] < 12) j++; else break; }
+      if (Math.abs(soma) >= 45) cortes.push({ m: mSum / cnt, dir: soma > 0 ? 'esquerda' : 'direita' });
+      k = j + 1;
+    }
+    const aFinal = angAt(nodes, ult), lado = aFinal > 0 ? 'esquerda' : 'direita';
+    let prev = m1, prevTitulo = 'Saia do foyer e siga em frente';
+    cortes.forEach((c) => {
+      steps.push({ nivel: PAVIMENTO, titulo: prevTitulo, detalhe: 'Siga por cerca de ' + Math.max(1, Math.round((c.m - prev) / 5) * 5) + ' m.', a: prev, b: c.m });
+      prev = c.m; prevTitulo = 'Vire à ' + c.dir + ' e siga em frente';
+    });
+    steps.push({ nivel: PAVIMENTO, titulo: prevTitulo, detalhe: 'Siga por cerca de ' + Math.max(1, Math.round((marks[ult] - prev) / 5) * 5) + ' m até a fileira da vaga.', a: prev, b: marks[ult] });
+    steps.push({ nivel: PAVIMENTO, titulo: 'Vaga ' + vaga.codigo + ' à ' + lado,
+      detalhe: 'Vire à ' + lado + ' e siga até a frente do seu carro, estacionado na vaga ' + vaga.codigo + '.', a: marks[ult], b: total });
+    steps.forEach((s) => { s.a /= total; s.b /= total; });
+    steps[steps.length - 1].b = 1;
+    return { curve, pts, N, P, Tg, cumM, cumT, total, totalT: cumT[N], steps, length: curve.getLength() };
   }
 
+  /* ======================================================================== */
+  /* HELPERS DE CENA                                                          */
+  /* ======================================================================== */
   function personMarker() {
-    const THREEObj = window.THREE;
-    const g = new THREEObj.Group();
-    const mat = new THREEObj.MeshStandardMaterial({ color: 0xffffff, emissive: 0x00e5ff, emissiveIntensity: 1.4, transparent: true });
-    const head = new THREEObj.Mesh(new THREEObj.SphereGeometry(0.24, 16, 12), mat); head.position.z = 0.95;
-    const body = new THREEObj.Mesh(new THREEObj.CylinderGeometry(0.18, 0.2, 0.62, 12), mat);
-    body.rotation.x = Math.PI / 2; body.position.z = 0.4;
+    const g = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x00e5ff, emissiveIntensity: 1.3, transparent: true });
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 12), mat); head.position.z = 1.65;
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.34, 1.15, 14), mat); body.rotation.x = Math.PI / 2; body.position.z = 0.78;
     [head, body].forEach((m) => { m.renderOrder = 12; });
     g.add(head, body);
     return g;
   }
-
   function disposeGroup(g) {
     g.traverse((o) => {
       if (o.geometry) o.geometry.dispose();
       if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { if (m.map) m.map.dispose(); m.dispose(); });
     });
   }
+  const fmtT = (s) => { const t = Math.max(0, Math.round(s)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
+  const hasFsApi = () => !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
+
+  function safeBack(fallback) {
+    try {
+      if (document.referrer && window.history.length > 1) {
+        const u = new URL(document.referrer);
+        if (u.origin === window.location.origin && /(monitoramento|principal|index)\.html$/.test(u.pathname)) { window.history.back(); return; }
+      }
+    } catch (e) { /* referrer inválido */ }
+    window.location.assign(fallback);
+  }
 
   /* ======================================================================== */
-  /* COMPONENTE PRINCIPAL                                                      */
+  /* UI                                                                       */
   /* ======================================================================== */
-  function EncontreMeuCarro() {
-    const mountRef = useRef(null);
-    const three = useRef(null);
-    const sim = useRef({ playing: false, progress: 0, curve: null, duration: 20, fracs: [], camGoal: null, focusUntil: 0 });
-
-    const [ticket, setTicket] = useState(null);
-    const [origemId, setOrigemId] = useState(null);
-    const [acessivel, setAcessivel] = useState(false);
-    const [picker, setPicker] = useState(true);
-    const [cardOpen, setCardOpen] = useState(true);
-    const [stepIdx, setStepIdx] = useState(0);
-    const [pct, setPct] = useState(0);
-    const [playing, setPlaying] = useState(false);
-    const [erro, setErro] = useState(null);
-
-    const vaga = useMemo(() => (ticket ? resolverVaga(ticket) : null), [ticket]);
-    const origem = ORIGENS.find((o) => o.id === origemId) || null;
-    const plano = useMemo(
-      () => (vaga && vaga.ok && origem ? montarRota(origem, vaga, acessivel) : null),
-      [vaga, origem, acessivel]
+  function Splash({ msg, error }) {
+    return (
+      <div className="ec-stage ec-splash">
+        <style>{CSS}</style>
+        <div role={error ? 'alert' : 'status'} className={'ec-splash-box' + (error ? ' err' : '')}>
+          {!error && <span className="ec-spin" />}
+          <p>{error || msg}</p>
+          {error && <button className="ec-btn" onClick={() => window.location.reload()}>Tentar novamente</button>}
+        </div>
+      </div>
     );
+  }
+  class ErrorBoundary extends React.Component {
+    constructor(p) { super(p); this.state = { err: null }; }
+    static getDerivedStateFromError(err) { return { err }; }
+    componentDidCatch(err) { console.error('[encontremeucarro]', err); }
+    render() { return this.state.err ? <Splash error={'Erro ao exibir a tela: ' + (this.state.err.message || this.state.err)} /> : this.props.children; }
+  }
 
-    useEffect(() => { carregarVagaSalva().then(setTicket); }, []);
+  function EncontreMeuCarro({ mapa }) {
+    const stageRef = useRef(null), mountRef = useRef(null), three = useRef(null);
+    const sim = useRef({ playing: false, t: 0, speed: 2, mode: 'overview', manual: false, boost: 0, model: null, fit: null, dirty: true, initHeading: true, focusT: -1, goal: null });
+    const bay = React.useMemo(() => acharVaga(mapa, VAGA_ID), [mapa]);
 
+    const [origemId, setOrigemId] = useState(null), [acessivel, setAcessivel] = useState(false), [picker, setPicker] = useState(true);
+    const [cardOpen, setCardOpen] = useState(true), [listOpen, setListOpen] = useState(false), [erro, setErro] = useState(null), [rota, setRota] = useState(null);
+    const [hud, setHud] = useState({ pct: 0, step: 0, level: 'Térreo', eta: 0 });
+    const [playing, setPlaying] = useState(false), [mode, setModeState] = useState('overview'), [manual, setManual] = useState(false);
+    const [speed, setSpeed] = useState(2), [isFs, setIsFs] = useState(false);
+    const origem = ORIGENS.find((o) => o.id === origemId) || null;
+
+    /* ---------------- cena base (uma vez) ---------------- */
     useEffect(() => {
       const mount = mountRef.current;
-      if (!mount) return;
-
-      const THREEObj = window.THREE;
-      const OrbitControls = THREEObj ? (THREEObj.OrbitControls || window.OrbitControls) : null;
-
-      if (!THREEObj || !OrbitControls) { 
-        setErro('Dependências 3D não carregadas. Verifique a ordem dos scripts no HTML.'); 
-        return undefined; 
-      }
-
-      setErro(null);
-
-      const renderer = new THREEObj.WebGLRenderer({ antialias: true, alpha: true });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-      if ('outputColorSpace' in renderer) renderer.outputColorSpace = THREEObj.SRGBColorSpace; else renderer.outputEncoding = THREEObj.sRGBEncoding;
-      const k = 'outputColorSpace' in renderer ? 2 : 1;
+      let renderer;
+      try { renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' }); }
+      catch (e) { setErro('Seu navegador/dispositivo não conseguiu iniciar o WebGL. Atualize o navegador ou ative a aceleração por hardware.'); return undefined; }
+      let pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+      renderer.setPixelRatio(pixelRatio);
+      const physical = 'outputColorSpace' in renderer;
+      if (physical) renderer.outputColorSpace = THREE.SRGBColorSpace; else renderer.outputEncoding = THREE.sRGBEncoding;
+      const lk = physical ? 4 : 1;
       mount.appendChild(renderer.domElement);
+      renderer.domElement.style.cssText = 'display:block;touch-action:none';
+      renderer.domElement.addEventListener('webglcontextlost', (e) => { e.preventDefault(); setErro('A GPU interrompeu o gráfico 3D. Aguarde alguns segundos ou recarregue.'); });
+      renderer.domElement.addEventListener('webglcontextrestored', () => setErro(null));
 
-      const scene = new THREEObj.Scene();
-      scene.background = new THREEObj.Color(0x0a1220);
-      const camera = new THREEObj.PerspectiveCamera(40, 1, 0.1, 500);
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0a1220);
+      const camera = new THREE.PerspectiveCamera(FOV_OVERVIEW, 1, 0.3, 1500);
       camera.up.set(0, 0, 1);
-      const HOME = { pos: new THREEObj.Vector3(0, -72, 52), target: new THREEObj.Vector3(0, 0, 0) };
-      camera.position.copy(HOME.pos);
+      camera.position.set(-20, -110, 100);
       const controls = new OrbitControls(camera, renderer.domElement);
-      controls.enableDamping = true; controls.dampingFactor = 0.08;
-      controls.minDistance = 14; controls.maxDistance = 150;
-      controls.addEventListener('start', () => { sim.current.camGoal = null; sim.current.focusUntil = 0; });
-      controls.update();
+      controls.enableDamping = true; controls.dampingFactor = 0.08; controls.screenSpacePanning = true; controls.minDistance = 4; controls.maxDistance = 500;
+      controls.addEventListener('start', () => { const S = sim.current; S.goal = null; if (!S.manual) { S.manual = true; setManual(true); } });
 
-      scene.add(new THREEObj.AmbientLight(0xffffff, 0.9 * k));
-      const sun = new THREEObj.DirectionalLight(0xffffff, 0.8 * k); sun.position.set(20, -30, 60); scene.add(sun);
+      scene.add(new THREE.AmbientLight(0xffffff, physical ? 1.9 : 0.95));
+      const sun = new THREE.DirectionalLight(0xffffff, physical ? 1.5 : 0.75); sun.position.set(60, -80, 160); scene.add(sun);
 
-      scene.add(...makeFloor('terreo', 'TÉRREO', 0.88, 2, renderer), ...makeFloor('subsolo', 'SUBSOLO SS1', 0.95, 1, renderer));
-      
-      const carGroup = new THREEObj.Group(); 
-      const routeGroup = new THREEObj.Group(); 
-      const walker = personMarker(); walker.visible = false;
-      scene.add(carGroup, routeGroup, walker);
-      const walkRing = makeRing(0x00f0ff, 0.35, 0.55); walkRing.visible = false; scene.add(walkRing);
+      const fT = makeFloor(mapa.meta.texturas.terreo, 'TÉRREO', 0, FADE_TOP, 2, renderer, planeWithHole(mapa, null));
+      const fS = makeFloor(mapa.meta.texturas.subsolo, 'SUBSOLO SS1', -GAP, 0.97, 1, renderer, planeWithHole(mapa, null));
+      scene.add(fT.mesh, fS.mesh, buildCenario(mapa, bay.id));
+
+      // o carro do usuário, estacionado na vaga (de frente para o fundo da vaga), com marcador amarelo
+      const meuCarro = buildCar(lk);
+      meuCarro.position.set(bay.x, bay.y, -GAP + 0.02); meuCarro.rotation.z = bay.frente === 'N' ? -Math.PI / 2 : Math.PI / 2; meuCarro.scale.set(0.92, 0.92, 0.92);
+      const spotRing = makeRing(0xfacc15, 1.6, 2.3); spotRing.position.set(bay.x, bay.y, -GAP + 0.1);
+      const beacon = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 9, 8), new THREE.MeshBasicMaterial({ color: 0xfacc15, transparent: true, opacity: 0.55 }));
+      beacon.rotation.x = Math.PI / 2; beacon.position.set(bay.x, bay.y, -GAP + 4.5); beacon.renderOrder = 8;
+      const lblSpot = makeLabel('Seu carro · ' + VAGA_ID, '#facc15', 5, 1.25); lblSpot.position.set(bay.x, bay.y, -GAP + 9);
+      const lT = makeLabel('TÉRREO', '#7dd3fc', 14, 3.5); lT.position.set(-70, -58, 1);
+      const lS = makeLabel('SUBSOLO SS1', '#7dd3fc', 14, 3.5); lS.position.set(-70, -58, -GAP + 1);
+      scene.add(meuCarro, spotRing, beacon, lblSpot, lT, lS);
+
+      const routeGroup = new THREE.Group(); scene.add(routeGroup);
+      const walker = personMarker(); walker.visible = false; scene.add(walker);
+      const walkRing = makeRing(0x00f0ff, 0.5, 0.85); walkRing.visible = false; scene.add(walkRing);
+
+      const cv0 = criarConversores(mapa), tw = cv0.terPxToM(TORRE_TERREO_PX[0], TORRE_TERREO_PX[1]);
+      sim.current.fit = new THREE.Box3().setFromPoints([new THREE.Vector3(tw[0], tw[1], 0), new THREE.Vector3(bay.x, bay.y, -GAP)]).expandByScalar(28);
 
       const resize = () => {
         const w = Math.max(mount.clientWidth, 1), h = Math.max(mount.clientHeight, 1);
         camera.aspect = w / h; camera.updateProjectionMatrix(); renderer.setSize(w, h);
       };
       resize();
-      const ro = new ResizeObserver(resize); ro.observe(mount);
+      let ro = null; if (window.ResizeObserver) { ro = new ResizeObserver(resize); ro.observe(mount); }
+      window.addEventListener('resize', resize);
+      three.current = { scene, camera, controls, routeGroup, walker, walkRing };
 
-      three.current = { scene, camera, controls, carGroup, routeGroup, walker, walkRing, HOME, k };
-
-      const clock = new THREEObj.Clock();
-      const p = new THREEObj.Vector3(), prev = new THREEObj.Vector3(), des = new THREEObj.Vector3(), d = new THREEObj.Vector3();
-      let lastPct = -1, lastStep = -1, raf = 0;
+      const pos = new THREE.Vector3(), tan = new THREE.Vector3(), tB = new THREE.Vector3(), tC = new THREE.Vector3(), goalPos = new THREE.Vector3(), goalTgt = new THREE.Vector3();
+      const hS = new THREE.Vector2(1, 0), clock = new THREE.Clock(), bc = new THREE.Vector3(), bs = new THREE.Vector3();
+      let kappa = 0, phiS = 0, lastSeg = -1, lastHud = 0, raf = 0, frames = 0, acc = 0, firstFrame = true;
 
       const loop = () => {
         raf = requestAnimationFrame(loop);
-        const dt = Math.min(clock.getDelta(), 0.05);
-        const t = clock.elapsedTime;
-        const s = sim.current;
+        const rawDt = clock.getDelta(), dt = Math.min(rawDt, 0.05), now = clock.elapsedTime, S = sim.current, M = S.model;
+        const pu = 1 + 0.18 * Math.sin(now * 4);
+        spotRing.scale.set(pu, pu, 1);
+        lblSpot.scale.set(5 * clamp(camera.position.distanceTo(lblSpot.position) * 0.016, 0.9, 4.5) / 1.25, clamp(camera.position.distanceTo(lblSpot.position) * 0.016, 0.9, 4.5), 1);
+        lT.visible = lS.visible = S.mode === 'overview';
 
-        if (s.playing && s.curve) {
-          s.progress += dt / s.duration;
-          if (s.progress >= 1) { s.progress = 1; s.playing = false; setPlaying(false); }
-        }
-        if (s.curve) {
-          s.curve.getPointAt(s.progress, p);
+        let carZ = 0;
+        if (M) {
+          if (S.playing) {
+            S.t += dt * S.speed;
+            if (S.t >= M.totalT) { S.t = M.totalT; S.playing = false; setPlaying(false); S.dirty = true; }
+          }
+          const idx = idxOf(M.cumT, S.t), u = idx / M.N, meters = sampleAt(M.cumM, idx);
+          M.curve.getPointAt(u, pos); M.curve.getTangentAt(u, tan);
+          carZ = pos.z;
           walker.visible = walkRing.visible = true;
-          walker.position.set(p.x, p.y, p.z - LIFT);
-          walkRing.position.set(p.x, p.y, p.z - LIFT + 0.06);
-          const pu = 1 + 0.2 * Math.sin(t * 5); walkRing.scale.set(pu, pu, 1);
+          walker.position.set(pos.x, pos.y, pos.z - LIFT + 0.02); walkRing.position.set(pos.x, pos.y, pos.z - LIFT + 0.08);
+          walkRing.scale.set(pu, pu, 1);
+          const hxy = Math.hypot(tan.x, tan.y); if (hxy > 0.05) walker.rotation.z = Math.atan2(tan.y, tan.x);
+
+          const seg = Math.min(TUBE_SEGS - 1, Math.floor(u * TUBE_SEGS));
+          const rg = M.tube;
+          if (rg && seg !== lastSeg) { lastSeg = seg; const st = seg * TUBE_RADIAL * 6; rg.core.setDrawRange(st, rg.total - st); rg.glow.setDrawRange(st, rg.total - st); }
+
+          // câmera
+          S.boost = Math.min(1, S.boost + dt / 1.2);
+          const rate = 2 + 5 * S.boost;
+          if (S.mode === 'follow') {
+            const stepLook = CHASE.look / M.length, stepCurve = CHASE.curveLook / M.length;
+            M.curve.getTangentAt(Math.min(1, u + stepLook), tB);
+            let hx = tan.x * 0.4 + tB.x * 0.6, hy = tan.y * 0.4 + tB.y * 0.6;
+            const hl = Math.hypot(hx, hy);
+            if (hl > 1e-4) {
+              hx /= hl; hy /= hl;
+              if (S.initHeading) { hS.set(hx, hy); S.initHeading = false; }
+              const kh = 1 - Math.exp(-3.5 * dt); hS.x += (hx - hS.x) * kh; hS.y += (hy - hS.y) * kh;
+              const n = Math.hypot(hS.x, hS.y) || 1; hS.x /= n; hS.y /= n;
+            }
+            M.curve.getTangentAt(Math.min(1, u + stepCurve), tC);
+            const la = Math.hypot(tan.x, tan.y), lc = Math.hypot(tC.x, tC.y);
+            const kt = la > 1e-4 && lc > 1e-4 ? clamp(Math.acos(clamp((tan.x * tC.x + tan.y * tC.y) / (la * lc), -1, 1)) / (Math.PI / 2), 0, 1) : 0;
+            kappa += (kt - kappa) * (1 - Math.exp(-3 * dt));
+            const phi0 = Math.atan2(tan.z, Math.hypot(tan.x, tan.y)), phi1 = Math.atan2(tB.z, Math.hypot(tB.x, tB.y));
+            phiS += ((phi0 + phi1) * 0.5 - phiS) * (1 - Math.exp(-5 * dt));
+            if (!S.manual) {
+              const B = CHASE.back + 3 * kappa, H = CHASE.height + 3 * kappa, A = CHASE.ahead - 2 * kappa;
+              const psi = CHASE.tilt * phiS, cp = Math.cos(psi), sp = Math.sin(psi);
+              const fx = cp * hS.x, fy = cp * hS.y, fz = sp, nx = -sp * hS.x, ny = -sp * hS.y, nz = cp;
+              goalPos.set(pos.x - fx * B + nx * H, pos.y - fy * B + ny * H, pos.z - fz * B + nz * H);
+              goalTgt.set(pos.x + fx * A + nx * 0.8, pos.y + fy * A + ny * 0.8, pos.z + fz * A + nz * 0.8);
+              if (firstFrame) { camera.position.copy(goalPos); controls.target.copy(goalTgt); }
+              camera.position.lerp(goalPos, 1 - Math.exp(-rate * dt)); controls.target.lerp(goalTgt, 1 - Math.exp(-(rate + 1.5) * dt));
+            }
+          }
+          if (now - lastHud > 0.1 || S.dirty) {
+            S.dirty = false; lastHud = now;
+            const f = meters / M.total; let si = M.steps.findIndex((s) => f <= s.b + 1e-6); if (si < 0) si = M.steps.length - 1;
+            setHud({ pct: clamp(f * 100, 0, 100), step: si, eta: Math.max(0, M.totalT - S.t), level: pos.z > -GAP * 0.25 ? 'Térreo' : pos.z < -GAP * 0.75 ? PAVIMENTO : 'Descida' });
+          }
         } else { walker.visible = walkRing.visible = false; }
 
-        if (s.camGoal) {
-          const e = 1 - Math.exp(-4 * dt);
-          camera.position.lerp(s.camGoal.pos, e); controls.target.lerp(s.camGoal.target, e);
-          if (camera.position.distanceTo(s.camGoal.pos) < 0.1) s.camGoal = null;
-        } else if (s.curve && (s.playing || t < s.focusUntil)) {
-          prev.copy(controls.target);
-          des.set(p.x, p.y, p.z * 0.5);
-          controls.target.lerp(des, 1 - Math.exp(-3 * dt));
-          camera.position.add(d.copy(controls.target).sub(prev));
-        }
-        controls.update();
-        if (camera.position.z < CAM_MIN_Z) camera.position.z = CAM_MIN_Z;
+        const fz = clamp((carZ + GAP * 0.55) / (GAP * 0.45), 0, 1);
+        const alvo = FADE_LOW + (FADE_TOP - FADE_LOW) * fz * fz * (3 - 2 * fz);
+        fT.mat.opacity += ((M ? alvo : (S.showSS1 ? 0.16 : FADE_TOP)) - fT.mat.opacity) * (1 - Math.exp(-6 * dt));
 
-        const p100 = Math.round(s.progress * 100);
-        if (p100 !== lastPct) { lastPct = p100; setPct(p100); }
-        if (s.fracs.length) {
-          let i = s.fracs.findIndex((b) => s.progress <= b + 1e-6); if (i < 0) i = s.fracs.length - 1;
-          if (i !== lastStep) { lastStep = i; setStepIdx(i); }
+        const fovGoal = S.mode === 'follow' ? FOV_FOLLOW : FOV_OVERVIEW;
+        if (Math.abs(camera.fov - fovGoal) > 0.05) { camera.fov += (fovGoal - camera.fov) * (1 - Math.exp(-4 * dt)); camera.updateProjectionMatrix(); }
+        if (S.mode === 'overview' && !S.manual) {
+          S.fit.getCenter(bc); S.fit.getSize(bs);
+          const tn = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2), d = Math.max((bs.y / 2) / tn, (bs.x / 2) / (tn * camera.aspect)) * 1.08;
+          goalPos.set(bc.x, bc.y - d * 0.3, d + 4); goalTgt.set(bc.x, bc.y - d * 0.14, -GAP * 0.4);
+          const rate = 2 + 5 * (S.boost = Math.min(1, S.boost + dt / 1.2));
+          if (firstFrame) { camera.position.copy(goalPos); controls.target.copy(goalTgt); }
+          camera.position.lerp(goalPos, 1 - Math.exp(-rate * dt)); controls.target.lerp(goalTgt, 1 - Math.exp(-rate * dt));
         }
+        firstFrame = false;
+        controls.update();
+
+        frames++; acc += rawDt;
+        if (frames === 90) { if (acc / frames > 0.032 && pixelRatio > 1) { pixelRatio = Math.max(1, pixelRatio - 0.5); renderer.setPixelRatio(pixelRatio); resize(); } frames = 0; acc = 0; }
         renderer.render(scene, camera);
       };
       loop();
+      window.__nav = { sim: sim.current, camera, controls, scene };
 
       return () => {
-        cancelAnimationFrame(raf); ro.disconnect(); controls.dispose();
+        cancelAnimationFrame(raf); if (ro) ro.disconnect(); window.removeEventListener('resize', resize); controls.dispose();
         disposeGroup(scene); renderer.dispose();
         if (renderer.domElement.parentNode === mount) mount.removeChild(renderer.domElement);
         three.current = null;
       };
     }, []);
 
-    /* -------------------- Rota (CatmullRomCurve3) ---------------------- */
+    /* ---------------- rota (quando muda a origem ou o modo acessível) ---------------- */
     useEffect(() => {
       const tc = three.current; if (!tc) return;
-      const THREEObj = window.THREE;
-      const s = sim.current, g = tc.routeGroup;
-      while (g.children.length) { const c = g.children.pop(); disposeGroup(c); }
-      s.playing = false; s.progress = 0; s.curve = null; s.fracs = []; s.camGoal = null; s.focusUntil = 0;
-      setPlaying(false); setPct(0); setStepIdx(0);
+      const S = sim.current, g = tc.routeGroup;
+      while (g.children.length) disposeGroup(g.children.pop());
+      S.playing = false; S.t = 0; S.model = null; S.dirty = true; setPlaying(false); setRota(null);
+      if (!origem) return;
+      let m, r;
+      try { r = montarRotaPedestre(mapa, origem, acessivel); m = buildModel(r); } catch (e) { console.error(e); setErro('Não foi possível calcular a rota: ' + e.message); return; }
+      setErro(null);
+      const core = new THREE.Mesh(new THREE.TubeGeometry(m.curve, TUBE_SEGS, TUBE_R, TUBE_RADIAL, false), new THREE.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, depthTest: false }));
+      const glow = new THREE.Mesh(new THREE.TubeGeometry(m.curve, TUBE_SEGS, TUBE_R * 2.6, TUBE_RADIAL, false),
+        new THREE.MeshBasicMaterial({ color: 0x00e5ff, transparent: true, opacity: 0.14, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
+      core.renderOrder = 20; glow.renderOrder = 21; g.add(core, glow);
+      m.tube = { core: core.geometry, glow: glow.geometry, total: core.geometry.index.count };
+      const o = r.nodes[0], ring = makeRing(0x4ade80, 1.2, 1.8); ring.position.set(o.x, o.y, 0.1);
+      const lbl = makeLabel('Você está aqui', '#4ade80', 7, 1.75); lbl.position.set(o.x, o.y, 5);
+      g.add(ring, lbl);
+      S.model = m; S.fit = new THREE.Box3().setFromPoints(m.pts).expandByScalar(16);
+      S.manual = false; S.boost = 0; S.mode = 'overview'; S.initHeading = true; setModeState('overview'); setManual(false);
+      setRota({ steps: m.steps, total: m.total, totalT: m.totalT });
+    }, [origemId, acessivel]);
 
-      if (!plano) {
-        s.camGoal = { pos: tc.HOME.pos.clone(), target: tc.HOME.target.clone() };
-        return;
-      }
-      const pts = buildPoints(plano.nodes, CORNER_R, 2.2);
-      const curve = new THREEObj.CatmullRomCurve3(pts, false, 'centripetal');
-      s.curve = curve; s.duration = plano.duracao; s.fracs = plano.secs.map((x) => x.b);
+    useEffect(() => {
+      const on = () => setIsFs(!!(document.fullscreenElement || document.webkitFullscreenElement));
+      document.addEventListener('fullscreenchange', on); document.addEventListener('webkitfullscreenchange', on);
+      return () => { document.removeEventListener('fullscreenchange', on); document.removeEventListener('webkitfullscreenchange', on); };
+    }, []);
 
-      const core = new THREEObj.Mesh(new THREEObj.TubeGeometry(curve, 700, 0.09, 8, false), new THREEObj.MeshBasicMaterial({ color: 0x00f0ff, transparent: true }));
-      g.add(core);
-
-      const o = plano.nodes[0];
-      const ring = makeRing(0x4ade80, 0.5, 0.8); ring.position.set(o.x, o.y, o.z - LIFT + 0.08);
-      g.add(ring);
-
-      const box = new THREEObj.Box3().setFromPoints(pts);
-      const c = box.getCenter(new THREEObj.Vector3()), sz = box.getSize(new THREEObj.Vector3());
-      const dist = Math.max(38, Math.hypot(sz.x, sz.y) * 1.25);
-      const dir = new THREEObj.Vector3(0, -0.8, 0.65).normalize();
-      s.camGoal = { pos: c.clone().add(dir.multiplyScalar(dist)), target: new THREEObj.Vector3(c.x, c.y, 0) };
-    }, [plano]);
-
-    const escolherOrigem = (id) => { setOrigemId(id); setPicker(false); setCardOpen(true); };
+    /* ---------------- ações ---------------- */
+    const escolher = (id) => { setOrigemId(id); setPicker(false); setCardOpen(true); };
+    const setCameraMode = useCallback((m) => { const S = sim.current; S.mode = m; S.manual = false; S.boost = 0; if (m === 'follow') S.initHeading = true; setModeState(m); setManual(false); }, []);
+    const recenter = useCallback(() => { const S = sim.current; S.manual = false; S.boost = 0; setManual(false); }, []);
     const togglePlay = () => {
-      const s = sim.current; if (!s.curve) return;
-      if (s.progress >= 1) s.progress = 0;
-      s.camGoal = null; s.playing = !s.playing; setPlaying(s.playing);
+      const S = sim.current; if (!S.model) return;
+      if (S.t >= S.model.totalT) S.t = 0;
+      if (S.playing) { S.playing = false; setPlaying(false); return; }
+      if (S.t === 0) setCameraMode('follow');
+      S.playing = true; S.dirty = true; setPlaying(true);
     };
+    const reiniciar = () => { const S = sim.current; S.t = 0; S.playing = false; S.dirty = true; setPlaying(false); setCameraMode('overview'); };
     const irParaPasso = (i) => {
-      const s = sim.current; if (!plano) return;
-      s.progress = plano.secs[i].a; s.playing = false; setPlaying(false);
-      s.camGoal = null; s.focusUntil = Infinity;
+      const S = sim.current; if (!S.model) return;
+      const idx = idxOf(S.model.cumM, S.model.steps[i].a * S.model.total); // metros -> índice da amostra
+      S.t = sampleAt(S.model.cumT, idx); S.playing = false; setPlaying(false); S.dirty = true; setCameraMode('follow');
+    };
+    const cycleSpeed = () => { const S = sim.current, n = SPEEDS[(SPEEDS.indexOf(S.speed) + 1) % SPEEDS.length]; S.speed = n; setSpeed(n); };
+    const toggleFs = () => {
+      if (!hasFsApi()) { setIsFs((v) => !v); return; }
+      const el = stageRef.current;
+      if (!(document.fullscreenElement || document.webkitFullscreenElement)) (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+      else (document.exitFullscreen || document.webkitExitFullscreen).call(document);
     };
 
-    // Redirecionamento correto para a tela de monitoramento
-    const voltar = () => { 
-      window.location.href = BACK_URL; 
-    };
-
-    const vagaTxt = vaga && vaga.ok ? vaga.code + ' · ' + NIVEL_LABEL[vaga.nivel] : vaga ? vaga.code : '…';
+    const pseudoFs = isFs && !hasFsApi();
+    const emRota = !!(origem && rota);
+    const minutos = rota ? Math.max(1, Math.round(rota.totalT / 60)) : 0;
 
     return (
-      <div className="ec-stage">
+      <div ref={stageRef} className="ec-stage" style={pseudoFs ? { position: 'fixed', inset: 0, zIndex: 9999 } : undefined}>
         <style>{CSS}</style>
         <div ref={mountRef} className="ec-canvas" />
-        {erro && <div className="ec-erro">{erro}</div>}
+        {erro && <div className="ec-erro" role="alert">{erro}</div>}
 
         <header className="ec-top">
-          <button className="ec-btn" onClick={voltar}>← Voltar</button>
-          {origem && !picker && (
-            <button className="ec-btn" onClick={() => setPicker(true)}>Trocar ponto de partida</button>
+          <button className="ec-btn" onClick={() => safeBack(BACK_URL)}>← Voltar</button>
+          {emRota && !picker && (
+            <div className="ec-seg" role="group" aria-label="Modo de câmera">
+              <button className={mode === 'follow' ? 'on' : ''} aria-pressed={mode === 'follow'} onClick={() => setCameraMode('follow')}>Seguir</button>
+              <button className={mode === 'overview' ? 'on' : ''} aria-pressed={mode === 'overview'} onClick={() => setCameraMode('overview')}>Visão geral</button>
+            </div>
           )}
+          <div className="ec-tools">
+            {emRota && !picker && <button className="ec-btn" onClick={() => setPicker(true)} title="Trocar ponto de partida">Trocar</button>}
+            <button className="ec-btn ec-sq" onClick={toggleFs} aria-label={isFs ? 'Sair da tela cheia' : 'Tela cheia'}>{isFs ? '⤡' : '⛶'}</button>
+          </div>
         </header>
 
-        {(picker || !origem) && (
+        {(picker || !emRota) && (
           <section className="ec-sheet" aria-label="Encontre meu carro">
             <h1>Encontre meu carro</h1>
-            <div className="ec-vaga">
-              <span className="ec-vaga-k">Vaga do seu ticket </span>
-              <strong>{vagaTxt}</strong>
-            </div>
+            <div className="ec-vaga"><span>Vaga do seu ticket</span><strong>{VAGA_ID} · {PAVIMENTO}</strong></div>
             <h2>Onde você está agora?</h2>
-            <ul className="ec-list">
+            <ul className="ec-list" role="radiogroup">
               {ORIGENS.map((o) => (
                 <li key={o.id}>
-                  <button className={'ec-opt' + (o.id === origemId ? ' on' : '')} onClick={() => escolherOrigem(o.id)}>
+                  <button role="radio" aria-checked={o.id === origemId} className={'ec-opt' + (o.id === origemId ? ' on' : '')} onClick={() => escolher(o.id)}>
                     <strong>{o.label}</strong><span>{o.hint}</span>
                   </button>
                 </li>
@@ -498,37 +506,39 @@
           </section>
         )}
 
-        {plano && !picker && (
-          <section className={'ec-card' + (cardOpen ? '' : ' closed')}>
-            <button className="ec-card-head" onClick={() => setCardOpen((v) => !v)}>
-              <span>
-                <strong>De {origem.label} até a vaga {vaga.code}</strong>
-                <small>≈ {plano.metros} m · {plano.minutos} min a pé</small>
-              </span>
+        {emRota && !picker && (
+          <section className={'ec-card' + (cardOpen ? '' : ' closed')} aria-label="Passo a passo da caminhada">
+            <button className="ec-card-head" onClick={() => setCardOpen((v) => !v)} aria-expanded={cardOpen}>
+              <span><strong>De {origem.label} até a vaga {VAGA_ID}</strong><small>≈ {Math.round(rota.total)} m · {minutos} min a pé · {hud.level}</small></span>
               <span>{cardOpen ? '▾' : '▸'}</span>
             </button>
             {cardOpen && (
               <>
-                <ol className="ec-steps">
-                  {plano.secs.map((s, i) => (
-                    <li key={i} className={i === stepIdx && (pct > 0 || playing) ? 'on' : i < stepIdx ? 'done' : ''}>
-                      <button onClick={() => irParaPasso(i)}>
-                        <span className="ec-num">{i + 1}</span>
-                        <span className="ec-txt">
-                          <strong>{s.titulo}</strong>
-                          <em>{s.nivel}</em>
-                          <span>{s.detalhe}</span>
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ol>
-                <div className="ec-bar"><div style={{ width: pct + '%' }} /></div>
-                <div className="ec-actions">
-                  <button className="ec-btn ec-go" onClick={togglePlay}>
-                    {playing ? '⏸ Pausar' : pct >= 100 ? '↺ Ver de novo' : '▶ Acompanhar caminhada'}
-                  </button>
+                <div className="ec-now" aria-live="polite">
+                  <span className="ec-num on">{hud.step + 1}</span>
+                  <span className="ec-txt"><strong>{rota.steps[hud.step].titulo}</strong><em>{rota.steps[hud.step].nivel}</em><span>{rota.steps[hud.step].detalhe}</span></span>
                 </div>
+                <div className="ec-bar"><div style={{ width: hud.pct + '%' }} /></div>
+                <div className="ec-actions">
+                  <button className="ec-btn ec-go" onClick={togglePlay}>{playing ? '⏸ Pausar' : hud.pct >= 100 ? '↺ Ver de novo' : hud.pct > 0 ? '▶ Continuar' : '▶ Acompanhar'}</button>
+                  <button className="ec-btn" onClick={reiniciar} disabled={hud.pct === 0 && !playing} aria-label="Reiniciar">↺</button>
+                  <button className={'ec-btn' + (manual ? ' ec-hint' : '')} onClick={recenter} aria-label="Recentralizar câmera">🎯</button>
+                  <button className="ec-btn" onClick={cycleSpeed} aria-label={'Velocidade ' + speed + ' vezes'}>⚡{speed}×</button>
+                  <button className={'ec-btn' + (acessivel ? ' ec-on' : '')} onClick={() => setAcessivel((v) => !v)} aria-pressed={acessivel} title="Rota acessível (elevador)" aria-label="Rota acessível, usar elevador">♿</button>
+                </div>
+                <button className="ec-more" onClick={() => setListOpen((v) => !v)} aria-expanded={listOpen}>{listOpen ? 'Ocultar passos ▴' : 'Ver todos os passos (' + rota.steps.length + ') ▾'}</button>
+                {listOpen && (
+                  <ol className="ec-steps">
+                    {rota.steps.map((s, i) => (
+                      <li key={i} className={i === hud.step && (hud.pct > 0 || playing) ? 'on' : i < hud.step ? 'done' : ''}>
+                        <button onClick={() => irParaPasso(i)} aria-label={'Ver passo ' + (i + 1) + ' no mapa'}>
+                          <span className="ec-num">{i < hud.step ? '✓' : i + 1}</span>
+                          <span className="ec-txt"><strong>{s.titulo}</strong><em>{s.nivel}</em><span>{s.detalhe}</span></span>
+                        </button>
+                      </li>
+                    ))}
+                  </ol>
+                )}
               </>
             )}
           </section>
@@ -539,36 +549,72 @@
 
   const CSS = `
 html,body{margin:0;height:100%;background:#0a1220}
-.ec-stage{position:relative;width:100%;height:100vh;overflow:hidden;background:#0a1220;color:#e6f1ff;font-family:sans-serif}
+.ec-stage{position:relative;width:100%;height:100vh;height:100dvh;overflow:hidden;background:#0a1220;color:#e6f1ff;font-family:"Segoe UI",system-ui,-apple-system,Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
 .ec-canvas{position:absolute;inset:0}
-.ec-top{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;padding:12px;z-index:10}
-.ec-btn{background:rgba(10,18,32,.82);border:1px solid rgba(125,211,252,.35);color:#e6f1ff;padding:10px 14px;border-radius:10px;cursor:pointer}
-.ec-go{background:#00c8d8;color:#04202a;border-color:#00f0ff;font-weight:bold}
-.ec-sheet,.ec-card{position:absolute;background:rgba(10,18,32,.88);border:1px solid rgba(125,211,252,.3);border-radius:14px;z-index:10}
-.ec-sheet{top:60px;left:12px;width:min(380px,calc(100% - 24px));padding:16px}
-.ec-vaga{padding:12px;border-radius:10px;background:rgba(250,204,21,.1);border:1px solid rgba(250,204,21,.5);margin-bottom:12px}
-.ec-vaga strong{font-size:20px;color:#facc15}
+.ec-top{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;gap:6px;padding:max(8px,env(safe-area-inset-top)) 8px 0;pointer-events:none}
+.ec-top>*{pointer-events:auto}.ec-tools{display:flex;gap:6px}
+.ec-btn{white-space:nowrap;appearance:none;border:1px solid rgba(125,211,252,.35);background:rgba(10,18,32,.84);color:#e6f1ff;padding:9px 12px;border-radius:11px;font:600 13px/1 inherit;font-family:inherit;cursor:pointer;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.ec-btn:hover:not(:disabled){background:rgba(24,44,72,.92);border-color:#7dd3fc}.ec-btn:disabled{opacity:.45;cursor:default}.ec-sq{padding:9px 11px}
+.ec-btn:focus-visible,.ec-opt:focus-visible,.ec-card-head:focus-visible,.ec-steps button:focus-visible,.ec-seg button:focus-visible{outline:2px solid #00f0ff;outline-offset:2px}
+.ec-go{background:#00c8d8;border-color:#00f0ff;color:#04202a;flex:1}.ec-go:hover:not(:disabled){background:#00e5ff}
+.ec-hint{border-color:#00f0ff;animation:ecPulse 1.4s ease-in-out infinite}
+.ec-seg{display:flex;padding:3px;border-radius:11px;background:rgba(10,18,32,.84);border:1px solid rgba(125,211,252,.35)}
+.ec-seg button{white-space:nowrap;appearance:none;border:0;background:none;color:#b6c9df;padding:7px 10px;border-radius:8px;font:600 12px/1 inherit;font-family:inherit;cursor:pointer}.ec-seg button.on{background:#00c8d8;color:#04202a}
+.ec-sheet,.ec-card{position:absolute;background:rgba(10,18,32,.9);border:1px solid rgba(125,211,252,.3);border-radius:14px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.ec-sheet{top:calc(max(8px,env(safe-area-inset-top)) + 46px);left:8px;width:min(380px,calc(100% - 16px));max-height:calc(100% - 70px);overflow:auto;padding:14px}
+.ec-sheet h1{margin:0 0 10px;font-size:19px}.ec-sheet h2{margin:14px 0 8px;font-size:14px;color:#b6c9df}
+.ec-vaga{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:10px;background:rgba(250,204,21,.1);border:1px solid rgba(250,204,21,.5)}.ec-vaga span{font-size:12px;color:#fde68a}.ec-vaga strong{font-size:18px;color:#facc15}
 .ec-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
-.ec-opt{width:100%;text-align:left;padding:10px;border-radius:10px;background:rgba(15,34,54,.7);border:1px solid rgba(125,211,252,.25);color:#fff;cursor:pointer}
-.ec-opt.on{border-color:#00f0ff;background:rgba(0,240,255,.12)}
-.ec-card{left:50%;bottom:12px;transform:translateX(-50%);width:min(560px,calc(100% - 24px));padding:12px}
-.ec-card-head{display:flex;justify-content:space-between;width:100%;background:none;border:0;color:#fff;cursor:pointer}
-.ec-steps{list-style:none;margin:10px 0;padding:0;max-height:180px;overflow:auto}
-.ec-steps button{display:flex;gap:10px;width:100%;background:none;border:0;color:#fff;text-align:left;padding:6px 0;cursor:pointer}
-.ec-num{width:24px;height:24px;border-radius:50%;background:#0f2236;border:1px solid #38bdf8;display:grid;place-items:center;font-size:12px}
-.ec-bar{height:5px;background:rgba(125,211,252,.2);border-radius:3px;margin:8px 0}
-.ec-bar div{height:100%;background:#00f0ff}
-.ec-actions{display:flex;gap:12px;margin-top:8px}
-.ec-erro{position:absolute;left:12px;right:12px;bottom:90px;padding:12px;background:#3b0d12;border:1px solid #f87171;color:#fecaca;border-radius:10px;z-index:20}
+.ec-opt{width:100%;display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:9px 12px;border-radius:10px;background:rgba(15,34,54,.7);border:1px solid rgba(125,211,252,.25);color:#e6f1ff;font-family:inherit;cursor:pointer}
+.ec-opt span{font-size:12px;color:#9db4cc}.ec-opt:hover{border-color:#7dd3fc}.ec-opt.on{border-color:#00f0ff;background:rgba(0,240,255,.12)}
+.ec-card{left:50%;bottom:max(8px,env(safe-area-inset-bottom));transform:translateX(-50%);width:min(560px,calc(100% - 16px));max-height:50vh;display:flex;flex-direction:column;overflow:hidden}
+.ec-card-head{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;padding:10px 12px;background:none;border:0;color:#e6f1ff;font-family:inherit;text-align:left;cursor:pointer}
+.ec-card-head span:first-child{display:flex;flex-direction:column;gap:2px}.ec-card-head small{color:#9db4cc;font-size:11.5px}
+.ec-now{display:flex;gap:9px;padding:4px 12px 2px;align-items:flex-start}.ec-num.on{background:#00f0ff;color:#04202a;border-color:#00f0ff}
+.ec-on{border-color:#00f0ff;box-shadow:inset 0 0 0 1px #00f0ff}
+.ec-more{appearance:none;background:none;border:0;color:#7dd3fc;font:600 12px/1 inherit;font-family:inherit;padding:2px 12px 10px;text-align:left;cursor:pointer}
+.ec-steps{list-style:none;margin:0;padding:0 8px 8px;overflow:auto;max-height:26vh}
+.ec-steps button{width:100%;display:flex;gap:9px;text-align:left;padding:7px 6px;border-radius:8px;background:none;border:0;color:inherit;font-family:inherit;cursor:pointer;opacity:.62}
+.ec-steps li.on button{opacity:1;background:rgba(0,240,255,.1)}.ec-steps li.done button{opacity:.4}
+.ec-num{flex:0 0 22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700;background:#0f2236;border:1px solid #38bdf8}.ec-steps li.on .ec-num{background:#00f0ff;color:#04202a;border-color:#00f0ff}
+.ec-txt{display:flex;flex-direction:column;gap:1px;font-size:12.5px;line-height:1.35;color:#b6c9df}.ec-txt strong{font-size:13.5px;color:#e6f1ff}.ec-txt em{font-style:normal;font-size:11px;color:#7dd3fc}
+.ec-bar{height:4px;margin:6px 12px 0;border-radius:2px;background:rgba(125,211,252,.2);overflow:hidden}.ec-bar div{height:100%;background:#00f0ff;box-shadow:0 0 8px #00f0ff}
+.ec-actions{display:flex;align-items:center;gap:6px;padding:8px 12px 8px}
+.ec-erro{position:absolute;left:8px;right:8px;bottom:60px;padding:12px 14px;border-radius:10px;background:#3b0d12;border:1px solid #f87171;color:#fecaca;font-size:14px}
+.ec-splash{display:grid;place-items:center}.ec-splash-box{text-align:center;padding:24px;max-width:340px}.ec-splash-box.err p{color:#fecaca}
+.ec-spin{display:block;width:34px;height:34px;margin:0 auto 14px;border-radius:50%;border:3px solid rgba(125,211,252,.25);border-top-color:#00f0ff;animation:ecSpin .9s linear infinite}
+@keyframes ecSpin{to{transform:rotate(360deg)}}@keyframes ecPulse{0%,100%{box-shadow:0 0 0 0 rgba(0,240,255,.5)}50%{box-shadow:0 0 0 8px rgba(0,240,255,0)}}
+@media (prefers-reduced-motion:reduce){.ec-hint,.ec-spin{animation:none}}
 `;
 
-  /* Renderização compatível com React 17 e 18 UMD */
-  const rootEl = document.getElementById('root');
-  if (rootEl) {
-    if (ReactDOM.createRoot) {
-      ReactDOM.createRoot(rootEl).render(<EncontreMeuCarro />);
-    } else if (ReactDOM.render) {
-      ReactDOM.render(<EncontreMeuCarro />, rootEl);
-    }
+  /* ======================================================================== */
+  /* BOOTSTRAP                                                                */
+  /* ======================================================================== */
+  function waitForDeps(timeoutMs) {
+    return new Promise((resolve, reject) => {
+      const t0 = Date.now();
+      (function check() {
+        const T = window.THREE;
+        if (T && T.OrbitControls) { THREE = T; OrbitControls = T.OrbitControls; E3D.init(T); resolve(); return; }
+        if (Date.now() - t0 > timeoutMs) { reject(new Error(!T ? 'Não foi possível carregar o Three.js. Verifique sua conexão e recarregue a página.' : 'O OrbitControls não foi carregado (inclua examples/js/controls/OrbitControls.js depois do three.js).')); return; }
+        setTimeout(check, 50);
+      })();
+    });
   }
+  function carregarMapa() {
+    if (window.MAPA_ESTACIA) return Promise.resolve(window.MAPA_ESTACIA);
+    return fetch(MAPA_URL).then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .catch((e) => { throw new Error('Não consegui carregar o mapa (' + MAPA_URL + '): ' + e.message + '. Rode scripts/extrair_mapa.py e inclua assets/mapa_estacia.js no HTML.'); });
+  }
+  function bootstrap() {
+    const rootEl = document.getElementById('root');
+    if (!rootEl) { console.error('[encontremeucarro] elemento #root não encontrado'); return; }
+    const root = ReactDOM.createRoot(rootEl);
+    root.render(<Splash msg="Carregando motor 3D e mapa…" />);
+    Promise.all([waitForDeps(12000), carregarMapa()])
+      .then(([, mapa]) => root.render(<ErrorBoundary><EncontreMeuCarro mapa={mapa} /></ErrorBoundary>))
+      .catch((e) => root.render(<Splash error={e.message} />));
+  }
+  if (window.__ENC_TEST__) window.__ENC_TEST__.api = { ORIGENS, montarRotaPedestre, buildModel, setT: (t) => { THREE = t; E3D.init(t); } };
+  else bootstrap();
 })();
