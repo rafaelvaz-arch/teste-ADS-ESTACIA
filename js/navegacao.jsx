@@ -48,6 +48,41 @@
  *  6) Foco de pavimento: o Térreo (0.88) fica quase transparente (0.10) quando
  *     o carro desce, para a câmera/vista enxergarem o SS1 sem "atravessar" um
  *     plano opaco. Interpolação smoothstep entre Z=11 e Z=5.
+ *
+ * ---------------------------------------------------------------------------
+ * RAMPA 3D, PITCH DO CARRO E PITCH DA CÂMERA
+ * ---------------------------------------------------------------------------
+ *  7) Perfil vertical da rampa (curvas côncava/convexa nas pontas). Com t∈[0,1]
+ *     ao longo do trecho R0→R1 e fração de ponta E=0.2, a inclinação é
+ *     0 → s → 0 (parábola, reta, parábola) com s = 1/(1−E), de modo que
+ *         z(t) = Z_T + (Z_S − Z_T)·g(t),   g(0)=0, g(1)=1, g' contínua.
+ *     Sem esse "arredondamento" o carro quebraria o pitch de 0° para a
+ *     inclinação máxima de uma só vez, no primeiro frame da rampa.
+ *
+ *  8) A malha da rampa é construída DAS PRÓPRIAS AMOSTRAS DA CURVA: cada seção
+ *     transversal usa o ponto p(u), o piso = p.z − LIFT, e a normal da pista
+ *         n = normalize(0, T.z, −T.y)      (T = tangente; n.z > 0)
+ *     Assim o carro, que usa o mesmo p(u), assenta exatamente na superfície e
+ *     as muretas (varredura de um perfil retangular ao longo de n) acompanham
+ *     a inclinação. O plano do Térreo ganha um "buraco" (THREE.Shape + hole)
+ *     sobre a rampa; sem ele o plano cobriria a rampa por cima.
+ *
+ *  9) Pitch do carro = ângulo REAL da tangente, φ = atan2(T.z, |T.xy|). O
+ *     referencial do carro é (frente = T, esquerda = ẑ×T, topo = T×esquerda),
+ *     então ele aponta para baixo na descida e volta ao plano ao fim da curva
+ *     vertical. Abaixo de |T.xy| < 0.06 usamos o último rumo válido (evita a
+ *     degenerescência de uma tangente vertical).
+ *
+ * 10) Pitch da câmera: φ_cam é a média do pitch atual e do pitch à frente,
+ *     filtrada (passa-baixa). A câmera usa um referencial INCLINADO por
+ *     ψ = 0.45·φ_cam:   f = (cosψ·ĥ, sinψ),  n = (−sinψ·ĥ, cosψ)
+ *         C = P − f·B + n·H        L = P + f·A + n·0.6
+ *     Com ψ<0 (descida) a câmera sobe e olha para baixo, mantendo o carro e a
+ *     pista do SS1 no enquadramento. Em rampa MUITO íngreme (|φ| > ~40°) a
+ *     face da pista fica de costas para uma câmera atrás do carro; então
+ *     misturamos (smoothstep de 40° a 72°) com uma pose LATERAL:
+ *         C_lat = P + r̂·7 − ĥ·2.5 + ẑ·2.2,   r̂ = (ĥ.y, −ĥ.x)   (direita)
+ *     que enxerga o perfil do carro descendo pela rampa.
  * ========================================================================== */
 (function () {
   'use strict';
@@ -89,8 +124,18 @@
   const FAR_M = 60; // acima disso o HUD diz "Siga reto"
   const FADE_TOP = 0.88, FADE_LOW = 0.1;
   const CAM_MIN_Z_OVERVIEW = 14; // na visão geral a câmera não desce abaixo do Térreo
-  const CHASE = { back: 9, height: 6.5, ahead: 7, look: 6, curveLook: 11 };
+  const CHASE = { back: 9, height: 6.5, ahead: 7, look: 6, curveLook: 11, tilt: 0.45, sideFrom: 0.7, sideTo: 1.25, side: 7, sideLead: 1.2 };
   const SPEEDS = [1, 2, 4];
+
+  /* Rampa central (retângulo demarcado nas plantas, em px). O trecho em declive
+   * vai de RAMP_TOP_PX (topo, Z do Térreo) a RAMP_BASE_PX (base, Z do SS1). */
+  const RAMP_X0_PX = 473, RAMP_X1_PX = 528; // largura do retângulo
+  const RAMP_TOP_PX = 572, RAMP_BASE_PX = 636, RAMP_HOLE_BOTTOM_PX = 642;
+  const RAMP_EASE = 0.2; // fração de cada ponta com curva vertical
+  const RAMP_STEPS = 28; // pontos de controle da curva dentro da rampa
+  const RAMP_TILE = 2.0; // comprimento (unid.) de um "ladrilho" da textura
+  const RAMP_COLOR = '#1a2332';
+  const WALL_H = 0.4, WALL_T = 0.18; // muretas laterais
 
   /* Nós do grafo (px das plantas 1280×720). Ajuste aqui se a rota sair da pista. */
   const px = (x, y, z) => ({ x: (x / IMG_W - 0.5) * PLANE_W, y: (0.5 - y / IMG_H) * PLANE_H, z: z + LIFT });
@@ -98,24 +143,26 @@
     px(1095, 598, Z_T), //  0 origem: pista inferior direita do Térreo
     px(572, 598, Z_T), //   1 curva para o norte
     px(572, 553, Z_T), //   2 jog
-    px(488, 553, Z_T), //   3 topo da rampa central
-    px(488, 632, Z_S), //   4 base da rampa (já no SS1)
-    px(488, 650, Z_S), //   5 saída da rampa
-    px(620, 650, Z_S), //   6 corredor central
-    px(620, 168, Z_S), //   7 cruzamento com a Alameda Norte
-    px(440, 168, Z_S), //   8 entrada da fileira da vaga
-    px(440, 214, Z_S), //   9 vaga A-145
+    px(488, 553, Z_T), //   3 curva para a rampa (ainda plano)
+    px(488, RAMP_TOP_PX, Z_T), //   4 R0: topo da rampa (início do declive)
+    px(488, RAMP_BASE_PX, Z_S), //  5 R1: base da rampa, já no SS1
+    px(488, 650, Z_S), //   6 saída da rampa
+    px(620, 650, Z_S), //   7 corredor central
+    px(620, 168, Z_S), //   8 cruzamento com a Alameda Norte
+    px(440, 168, Z_S), //   9 entrada da fileira da vaga
+    px(440, 214, Z_S), //  10 vaga A-145
   ];
+  const I_R0 = 4, I_R1 = 5;
 
   /* Manobras do turn-by-turn. {dir} e o ícone "turn" saem da GEOMETRIA (produto
    * vetorial), então o texto nunca contradiz o desenho da rota. */
   const ACTION_DEFS = [
     { node: 1, icon: 'turn', text: 'Vire à {dir} e siga até a rampa' },
     { node: 3, icon: 'ramp', text: 'Vire à {dir} e desça a rampa para o Subsolo SS1' },
-    { node: 5, icon: 'turn', text: 'Ao sair da rampa, vire à {dir}' },
-    { node: 6, icon: 'turn', text: 'Vire à {dir} no corredor central' },
-    { node: 7, icon: 'turn', text: 'Na Alameda Norte, vire à {dir}' },
-    { node: 8, icon: 'turn', text: 'Vire à {dir} e estacione na Vaga ' + VAGA.codigo },
+    { node: 6, icon: 'turn', text: 'Ao sair da rampa, vire à {dir}' },
+    { node: 7, icon: 'turn', text: 'Vire à {dir} no corredor central' },
+    { node: 8, icon: 'turn', text: 'Na Alameda Norte, vire à {dir}' },
+    { node: 9, icon: 'turn', text: 'Vire à {dir} e estacione na Vaga ' + VAGA.codigo },
   ];
 
   /* ======================================================================== */
@@ -159,6 +206,23 @@
     return dense;
   }
 
+  /* Perfil vertical g(t) da rampa: parábola–reta–parábola, derivada contínua. */
+  function rampProfile(t) {
+    const E = RAMP_EASE, k = 1 / (1 - E);
+    if (t < E) return (k * t * t) / (2 * E);
+    if (t <= 1 - E) return k * (E / 2 + (t - E));
+    const r = 1 - t;
+    return 1 - (k * r * r) / (2 * E);
+  }
+  function rampPoints(a, b, count) {
+    const out = [];
+    for (let k = 1; k < count; k++) {
+      const t = k / count;
+      out.push(new THREE.Vector3(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * rampProfile(t)));
+    }
+    return out;
+  }
+
   /* Índice fracionário onde arr (não decrescente) atinge v. */
   function idxOf(arr, v) {
     let lo = 0, hi = arr.length - 1;
@@ -178,7 +242,12 @@
    * a simulação avança por TEMPO, o carro desacelera de verdade e o ETA mostrado
    * (totalT − t) é coerente com o que o usuário vê. */
   function buildModel() {
-    const pts = buildPoints(NODES, CORNER_R, 2.5);
+    // Térreo (com curvas) + rampa (perfil suave, sem arredondar) + SS1 (com curvas)
+    const head = buildPoints(NODES.slice(0, I_R0 + 1), CORNER_R, 2.5);
+    const mid = rampPoints(NODES[I_R0], NODES[I_R1], RAMP_STEPS);
+    const tail = buildPoints(NODES.slice(I_R1), CORNER_R, 2.5);
+    const pts = [];
+    [head, mid, tail].forEach((arr) => arr.forEach((p) => { if (!pts.length || pts[pts.length - 1].distanceTo(p) > 1e-4) pts.push(p); }));
     const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal');
     const N = SAMPLES;
     const P = [], Tg = [];
@@ -230,7 +299,25 @@
     });
     actions.push({ icon: 'park', text: 'Estacione na Vaga ' + VAGA.codigo + ', logo à frente', m: total });
 
-    return { curve, pts, N, cumM, cumT, total, totalT: cumT[N], actions };
+    // Amostras que delimitam a rampa + inclinação máxima (para a malha e para o aviso)
+    const nearest = (n) => {
+      const nv = new THREE.Vector3(n.x, n.y, n.z);
+      let best = Infinity, bi = 0;
+      for (let i = 0; i <= N; i++) { const d = P[i].distanceToSquared(nv); if (d < best) { best = d; bi = i; } }
+      return bi;
+    };
+    const rampIdx = [nearest(NODES[I_R0]), nearest(NODES[I_R1])];
+    let maxDeg = 0;
+    for (let i = rampIdx[0]; i <= rampIdx[1]; i++) {
+      maxDeg = Math.max(maxDeg, Math.abs(Math.atan2(Tg[i].z, Math.hypot(Tg[i].x, Tg[i].y))) * 180 / Math.PI);
+    }
+    if (maxDeg > 60) {
+      console.warn('[navegacao] A rampa tem inclinação máxima de ~' + Math.round(maxDeg) + '° (queda de ' +
+        Math.abs(Z_T - Z_S) + ' em ~' + (Math.abs(NODES[I_R1].y - NODES[I_R0].y)).toFixed(1) +
+        ' de percurso). Para uma rampa mais suave, aproxime os pavimentos (Z_T/Z_S).');
+    }
+
+    return { curve, pts, N, cumM, cumT, total, totalT: cumT[N], actions, P, Tg, rampIdx, maxDeg };
   }
 
   /* ======================================================================== */
@@ -250,11 +337,11 @@
     const t = new THREE.CanvasTexture(c); setTexSRGB(t); return t;
   }
 
-  function makeFloor(url, label, z, opacity, order, renderer) {
+  function makeFloor(url, label, z, opacity, order, renderer, geometry) {
     const mat = new THREE.MeshBasicMaterial({
       map: placeholderTexture(label + ' (carregando…)'), transparent: true, opacity, side: THREE.DoubleSide, depthWrite: false,
     });
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(PLANE_W, PLANE_H), mat);
+    const mesh = new THREE.Mesh(geometry || new THREE.PlaneGeometry(PLANE_W, PLANE_H), mat);
     mesh.position.set(0, 0, z); mesh.renderOrder = order;
     new THREE.TextureLoader().load(url, (tex) => {
       setTexSRGB(tex); tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
@@ -282,6 +369,85 @@
       new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false }));
     m.renderOrder = 8; return m;
   };
+
+  /* Plano do Térreo com abertura sobre a rampa (UV remapeado para a textura). */
+  function planeWithHole(h) {
+    const hw = PLANE_W / 2, hh = PLANE_H / 2;
+    const shape = new THREE.Shape();
+    shape.moveTo(-hw, -hh); shape.lineTo(hw, -hh); shape.lineTo(hw, hh); shape.lineTo(-hw, hh); shape.lineTo(-hw, -hh);
+    const hole = new THREE.Path();
+    hole.moveTo(h.x0, h.y1); hole.lineTo(h.x0, h.y0); hole.lineTo(h.x1, h.y0); hole.lineTo(h.x1, h.y1); hole.lineTo(h.x0, h.y1);
+    shape.holes.push(hole);
+    const g = new THREE.ShapeGeometry(shape);
+    const pos = g.attributes.position, uv = g.attributes.uv;
+    for (let i = 0; i < pos.count; i++) uv.setXY(i, pos.getX(i) / PLANE_W + 0.5, pos.getY(i) / PLANE_H + 0.5);
+    uv.needsUpdate = true;
+    return g;
+  }
+
+  /* Asfalto escuro, bordas amarelas, eixo tracejado e listras de atrito. */
+  function makeRampTexture(renderer) {
+    const c = document.createElement('canvas'); c.width = 128; c.height = 256;
+    const g = c.getContext('2d');
+    g.fillStyle = RAMP_COLOR; g.fillRect(0, 0, 128, 256);
+    for (let i = 0; i < 260; i++) { g.fillStyle = 'rgba(255,255,255,' + (Math.random() * 0.05) + ')'; g.fillRect(Math.random() * 128, Math.random() * 256, 2, 2); }
+    g.fillStyle = 'rgba(180,200,230,.16)'; for (let y = 8; y < 256; y += 32) g.fillRect(14, y, 100, 5); // atrito
+    g.fillStyle = '#facc15'; g.fillRect(5, 0, 5, 256); g.fillRect(118, 0, 5, 256); // bordas
+    g.fillStyle = 'rgba(255,255,255,.85)'; for (let y = 0; y < 256; y += 64) g.fillRect(62, y, 4, 36); // eixo
+    const t = new THREE.CanvasTexture(c);
+    setTexSRGB(t); t.wrapS = THREE.ClampToEdgeWrapping; t.wrapT = THREE.RepeatWrapping;
+    t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+    return t;
+  }
+
+  /* Varre um perfil 2D (x absoluto, altura ao longo da normal) por todas as seções. */
+  function sweepGeometry(frames, profile, withUV) {
+    const pos = [], uvs = [], idx = [];
+    let vtx = 0;
+    for (let j = 0; j < profile.length - 1; j++) {
+      const a = profile[j], b = profile[j + 1], start = vtx;
+      frames.forEach((f) => {
+        pos.push(a[0], f.base.y + f.n.y * a[1], f.base.z + f.n.z * a[1]);
+        pos.push(b[0], f.base.y + f.n.y * b[1], f.base.z + f.n.z * b[1]);
+        if (withUV) uvs.push(0, f.v, 1, f.v);
+        vtx += 2;
+      });
+      for (let k = 0; k < frames.length - 1; k++) { const i0 = start + k * 2; idx.push(i0, i0 + 1, i0 + 2, i0 + 1, i0 + 3, i0 + 2); }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    if (withUV) g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    g.setIndex(idx); g.computeVertexNormals();
+    return g;
+  }
+
+  /* Rampa 3D: piso + muretas + frisos ciano, tudo derivado das amostras da curva. */
+  function buildRamp(model, renderer) {
+    const { P, Tg, rampIdx } = model;
+    const x0 = px(RAMP_X0_PX, 0, 0).x, x1 = px(RAMP_X1_PX, 0, 0).x;
+    const ids = [];
+    for (let i = rampIdx[0]; i < rampIdx[1]; i += 3) ids.push(i);
+    ids.push(rampIdx[1]);
+    const frames = [];
+    let run = 0;
+    ids.forEach((i, k) => {
+      const p = P[i], t = Tg[i];
+      if (k) run += Math.hypot(p.y - P[ids[k - 1]].y, p.z - P[ids[k - 1]].z);
+      frames.push({ base: new THREE.Vector3(0, p.y, p.z - LIFT), n: new THREE.Vector3(0, t.z, -t.y).normalize(), v: run / RAMP_TILE });
+    });
+
+    const group = new THREE.Group();
+    const floorMat = new THREE.MeshBasicMaterial({ map: makeRampTexture(renderer), side: THREE.DoubleSide });
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0x0d1626, emissive: 0x0a1830, roughness: 0.8, metalness: 0.2, side: THREE.DoubleSide });
+    const neonMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff, side: THREE.DoubleSide });
+    const h = WALL_H, t = WALL_T;
+    group.add(new THREE.Mesh(sweepGeometry(frames, [[x0, 0], [x1, 0]], true), floorMat));
+    group.add(new THREE.Mesh(sweepGeometry(frames, [[x0, 0], [x0, h], [x0 - t, h], [x0 - t, 0]], false), wallMat));
+    group.add(new THREE.Mesh(sweepGeometry(frames, [[x1, 0], [x1, h], [x1 + t, h], [x1 + t, 0]], false), wallMat));
+    group.add(new THREE.Mesh(sweepGeometry(frames, [[x0 + 0.005, h - 0.14], [x0 + 0.005, h - 0.06]], false), neonMat));
+    group.add(new THREE.Mesh(sweepGeometry(frames, [[x1 - 0.005, h - 0.14], [x1 - 0.005, h - 0.06]], false), neonMat));
+    return group;
+  }
 
   /* Carro estilizado: frente +X, esquerda +Y, topo +Z. */
   function buildCar(lightK) {
@@ -430,9 +596,11 @@
       scene.add(new THREE.AmbientLight(0xffffff, physical ? 1.8 : 0.9));
       const sun = new THREE.DirectionalLight(0xffffff, physical ? 1.6 : 0.8); sun.position.set(20, -30, 60); scene.add(sun);
 
-      const fT = makeFloor(TEXTURES.terreo, 'TÉRREO', Z_T, FADE_TOP, 2, renderer);
+      const hole = { x0: px(RAMP_X0_PX, 0, 0).x, x1: px(RAMP_X1_PX, 0, 0).x, y1: px(0, RAMP_TOP_PX, 0).y, y0: px(0, RAMP_HOLE_BOTTOM_PX, 0).y };
+      const fT = makeFloor(TEXTURES.terreo, 'TÉRREO', Z_T, FADE_TOP, 2, renderer, planeWithHole(hole));
       const fS = makeFloor(TEXTURES.subsolo, 'SUBSOLO SS1', Z_S, 0.95, 1, renderer);
       scene.add(fT.mesh, fT.frame, fS.mesh, fS.frame);
+      scene.add(buildRamp(model, renderer)); // piso, muretas e frisos da rampa
       const lT = makeLabel('TÉRREO', '#7dd3fc', 7, 1.75); lT.position.set(-22, -PLANE_H / 2 - 1.8, Z_T + 0.5);
       const lS = makeLabel('SUBSOLO SS1', '#7dd3fc', 7, 1.75); lS.position.set(-22, -PLANE_H / 2 - 1.8, Z_S + 0.5);
       scene.add(lT, lS);
@@ -440,9 +608,9 @@
       // Rota: o tubo "se consome" conforme o carro avança (drawRange)
       const coreGeo = new THREE.TubeGeometry(model.curve, TUBE_SEGS, TUBE_R, TUBE_RADIAL, false);
       const glowGeo = new THREE.TubeGeometry(model.curve, TUBE_SEGS, TUBE_R * 3, TUBE_RADIAL, false);
-      const core = new THREE.Mesh(coreGeo, new THREE.MeshBasicMaterial({ color: 0x00f0ff, transparent: true }));
+      const core = new THREE.Mesh(coreGeo, new THREE.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, depthTest: false }));
       const glow = new THREE.Mesh(glowGeo, new THREE.MeshBasicMaterial({
-        color: 0x00e5ff, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false }));
+        color: 0x00e5ff, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
       core.renderOrder = 6; glow.renderOrder = 7;
       scene.add(core, glow);
       const idxTotal = coreGeo.index.count;
@@ -481,7 +649,8 @@
       const curveLen = model.curve.getLength();
       const stepLook = CHASE.look / curveLen;       // Δ (em u) ≈ 6 unidades à frente
       const stepCurve = CHASE.curveLook / curveLen; // Δ₂ para medir a curva
-      let kappa = 0, lastSeg = -1, lastHud = 0, raf = 0, frames = 0, acc = 0, firstCar = true;
+      const hLast = new THREE.Vector2(1, 0);
+      let phiS = 0, kappa = 0, lastSeg = -1, lastHud = 0, raf = 0, frames = 0, acc = 0, firstCar = true;
 
       const loop = () => {
         raf = requestAnimationFrame(loop);
@@ -505,8 +674,12 @@
         M.curve.getPointAt(u, pos);
         M.curve.getTangentAt(u, tan);
 
-        /* 2) Veículo: posição + orientação pela tangente (pitch atenuado) */
-        const fwd = tA.copy(tan); fwd.z *= 0.5; fwd.normalize();
+        /* 2) Veículo: posição + orientação pela tangente REAL (pitch na rampa) */
+        const hxy = Math.hypot(tan.x, tan.y);
+        if (hxy > 0.06) hLast.set(tan.x / hxy, tan.y / hxy);
+        const fwd = tA.copy(tan);
+        if (hxy <= 0.06) fwd.set(hLast.x * 0.06, hLast.y * 0.06, (tan.z < 0 ? -1 : 1) * 0.998); // evita tangente vertical
+        fwd.normalize();
         left.crossVectors(UP, fwd).normalize();
         up.crossVectors(fwd, left).normalize();
         basis.makeBasis(fwd, left, up);
@@ -550,10 +723,25 @@
             ? clamp(Math.acos(clamp((tan.x * tC.x + tan.y * tC.y) / (la * lc), -1, 1)) / (Math.PI / 2), 0, 1) : 0;
           kappa += (kt - kappa) * (1 - Math.exp(-3 * dt));
 
+          // pitch do trajeto (média atual/à frente) filtrado
+          const phi0 = Math.atan2(tan.z, Math.hypot(tan.x, tan.y));
+          const phi1 = Math.atan2(tB.z, Math.hypot(tB.x, tB.y));
+          phiS += ((phi0 + phi1) * 0.5 - phiS) * (1 - Math.exp(-5 * dt));
+
           if (!S.manual) {
             const B = CHASE.back + 3 * kappa, H = CHASE.height + 4 * kappa, A = CHASE.ahead - 2 * kappa;
-            goalPos.set(pos.x - hS.x * B, pos.y - hS.y * B, pos.z + H);
-            goalTgt.set(pos.x + hS.x * A, pos.y + hS.y * A, pos.z + 0.6);
+            // referencial inclinado por ψ: f = (cosψ·ĥ, sinψ), n = (−sinψ·ĥ, cosψ)
+            const psi = CHASE.tilt * phiS, cp = Math.cos(psi), sp = Math.sin(psi);
+            const fx = cp * hS.x, fy = cp * hS.y, fz = sp, nx = -sp * hS.x, ny = -sp * hS.y, nz = cp;
+            // mistura com a pose lateral quando a rampa é íngreme
+            const w = clamp((Math.abs(phiS) - CHASE.sideFrom) / (CHASE.sideTo - CHASE.sideFrom), 0, 1), ws = w * w * (3 - 2 * w);
+            const c3 = Math.cos(phiS), s3 = Math.sin(phiS);
+            const cx = pos.x - fx * B + nx * H, cy = pos.y - fy * B + ny * H, cz = pos.z - fz * B + nz * H;
+            const sx = pos.x + hS.y * CHASE.side - hS.x * 2.5, sy = pos.y - hS.x * CHASE.side - hS.y * 2.5, sz = pos.z + 2.2;
+            goalPos.set(cx + (sx - cx) * ws, cy + (sy - cy) * ws, cz + (sz - cz) * ws);
+            const lx = pos.x + fx * A + nx * 0.6, ly = pos.y + fy * A + ny * 0.6, lz = pos.z + fz * A + nz * 0.6;
+            const mx = pos.x + hS.x * c3 * CHASE.sideLead, my = pos.y + hS.y * c3 * CHASE.sideLead, mz = pos.z + s3 * CHASE.sideLead + 0.4;
+            goalTgt.set(lx + (mx - lx) * ws, ly + (my - ly) * ws, lz + (mz - lz) * ws);
             camera.position.lerp(goalPos, 1 - Math.exp(-rate * dt));
             controls.target.lerp(goalTgt, 1 - Math.exp(-(rate + 1.5) * dt));
           }
@@ -733,7 +921,7 @@
             <div className="nv-check" aria-hidden="true">✓</div>
             <h2>Você chegou!</h2>
             <p>Vaga <strong>{VAGA.codigo}</strong> · {VAGA.pavimento}</p>
-            <button className="nv-btn nv-go" onClick={finalizar}>Finalizar Rota</button>
+            <button className="nv-btn nv-go" onClick={finalizar}>🚀 Finalizar Rota</button>
           </div>
         )}
 
@@ -752,8 +940,8 @@
           <button className="nv-btn nv-go nv-wide" onClick={onPrimary}>{primaryLabel}</button>
           <div className="nv-row">
             <button className="nv-btn" onClick={resetSim}>↺ Reiniciar</button>
-            <button className={'nv-btn' + (manual ? ' nv-hint' : '')} onClick={recenter}>Recentralizar</button>
-            <button className="nv-btn nv-ok" onClick={finalizar}>Finalizar Rota</button>
+            <button className={'nv-btn' + (manual ? ' nv-hint' : '')} onClick={recenter}>🎯 Recentralizar</button>
+            <button className="nv-btn nv-ok" onClick={finalizar}>🚀 Finalizar Rota</button>
           </div>
         </footer>
       </div>
