@@ -6,7 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#0a1220">
   <title>Navegação no Estacionamento</title>
-  <!-- Se seu navegacao.html atual tem <link rel="manifest">, ícones ou CSS próprio no <head>, mantenha-os aqui. -->
   <style>
     html, body, #root { height: 100%; margin: 0; background: #0a1220; }
     body { overflow: hidden; overscroll-behavior: none; }
@@ -27,6 +26,12 @@
   <!-- 3) OrbitControls: DEVE vir depois do three.js (ele se anexa a THREE.OrbitControls) -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script>(window.THREE && window.THREE.OrbitControls) || document.write('<script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"><\/script>');</script>
+
+  <!-- 3.4) Núcleo compartilhado (A*, pisos, rampa, cenário, carro) — script comum, antes dos .jsx -->
+  <script src="js/estacia3d.js"></script>
+
+  <!-- 3.5) Mapa extraído por visão computacional (scripts/extrair_mapa.py). Script comum: funciona até em file:// -->
+  <script src="assets/mapa_estacia.js"></script>
 
   <!-- 4) Babel standalone + o app. O JSX ainda espera por THREE/OrbitControls (polling), então a ordem acima é só uma 1ª linha de defesa. -->
   <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>

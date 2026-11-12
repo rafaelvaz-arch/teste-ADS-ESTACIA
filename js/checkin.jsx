@@ -7,7 +7,9 @@ function CheckinApp() {
   const [step, setStep] = useState("scan"); // "scan" | "form"
   const [idType, setIdType] = useState("placa"); // "placa" | "chassi"
   const [inputValue, setInputValue] = useState("ABC1234");
-  const [vagaLida, setVagaLida] = useState("Setor A - Vaga 145");
+  // Vaga de destino gravada por navegacao.html ("Finalizar Rota"); sem ela, mantém o padrão de teste.
+  const destino = (() => { try { return JSON.parse(sessionStorage.getItem('estacia_vaga_destino') || 'null'); } catch (e) { return null; } })();
+  const [vagaLida, setVagaLida] = useState(destino ? `Vaga ${destino.vaga} · ${destino.pavimento}` : "Setor A - Vaga 145");
   const videoRef = useRef(null);
   const canvasRef = useRef(document.createElement("canvas"));
 
@@ -92,12 +94,13 @@ function CheckinApp() {
     const dadosCheckin = {
       plate: valorLimpo,
       vaga: vagaLida || "Setor A - Vaga 145",
+      vaga_codigo: destino ? destino.vaga : null,
       checkin_time: new Date().toISOString(),
       status: "Ativo"
     };
 
     localStorage.setItem('active_checkin', JSON.stringify(dadosCheckin));
-    window.location.href = 'monitoramento.html';
+    window.location.href = 'monitoramento.html' + (destino ? '?vaga=' + encodeURIComponent(destino.vaga) : '');
   };
 
   const handleTypeChange = (type) => {
