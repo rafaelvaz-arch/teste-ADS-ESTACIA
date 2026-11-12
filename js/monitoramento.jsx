@@ -7,8 +7,40 @@ const SUPABASE_ANON_KEY = "sb_publishable_SiOuuGYOJ08WYyczoUTvUA_6yasNb3Z";
 const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
 function MonitoramentoApp() {
-  const [minutes, setMinutes] = useState(14);
-  const [amount, setAmount] = useState(1.98);
+  const STORAGE_KEY = 'estacia_inicio_estadia';
+
+  // Recupera o timestamp salvo ou cria um novo se for o primeiro acesso
+  const [inicioTimestamp] = useState(() => {
+    const salvo = sessionStorage.getItem(STORAGE_KEY);
+    if (salvo) return Number(salvo);
+
+    const agora = Date.now();
+    sessionStorage.setItem(STORAGE_KEY, String(agora));
+    return agora;
+  });
+
+  // Formata a hora do check-in a partir do timestamp salvo
+  const [horaCheckin] = useState(() => {
+    return new Date(inicioTimestamp).toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  });
+
+  // Função auxiliar para calcular minutos e valor com base no tempo real decorrido
+  const calcularDadosEstadia = (inicio) => {
+    const VALOR_HORA = 8.50;
+    const minutosReais = Math.floor((Date.now() - inicio) / 60000);
+    const valor =
+      minutosReais <= 15
+        ? 0
+        : parseFloat((((minutosReais - 15) / 60) * VALOR_HORA).toFixed(2));
+    return { minutosReais, valor };
+  };
+
+  // Inicializa já com os minutos e valor reais acumulados
+  const [minutes, setMinutes] = useState(() => calcularDadosEstadia(inicioTimestamp).minutosReais);
+  const [amount, setAmount] = useState(() => calcularDadosEstadia(inicioTimestamp).valor);
 
   // Lê o código da vaga vindo do Check-in via URL ou assume A-145 como padrão
   const urlParams = new URLSearchParams(window.location.search);
@@ -22,16 +54,19 @@ function MonitoramentoApp() {
   const [metodoPagamento, setMetodoPagamento] = useState(null);
   const [horaPagamento, setHoraPagamento] = useState(null);
 
-  // Simulação do tempo decorrido
+  // Atualiza o relógio e o valor a cada 1 minutos com base no horário real de entrada
   useEffect(() => {
-    const timer = setInterval(() => {
-      setMinutes((prev) => prev + 1);
-      setAmount((prev) => parseFloat((prev + 0.14).toFixed(2)));
-    }, 10000);
-    return () => clearInterval(timer);
-  }, []);
+    const atualizar = () => {
+      const { minutosReais, valor } = calcularDadosEstadia(inicioTimestamp);
+      setMinutes(minutosReais);
+      setAmount(valor);
+    };
 
-  // 1. Atualiza no Supabase (tabela 'vagas') de LIVRE para OCUPADA + Escuta Realtime
+    atualizar();
+    const timer = setInterval(atualizar, 60000);
+    return () => clearInterval(timer);
+  }, [inicioTimestamp]);
+
   useEffect(() => {
     if (!supabase) return;
 
@@ -52,7 +87,6 @@ function MonitoramentoApp() {
 
     atualizarStatusNoSupabase();
 
-    // Escuta alterações na tabela 'vagas' em tempo real
     const channel = supabase
       .channel('vagas-realtime')
       .on(
@@ -224,14 +258,14 @@ function MonitoramentoApp() {
           </span>
         </div>
 
-        {metodoPagamento && (
+        {statusPagamento === 'PAGO' && metodoPagamento && (
           <div className="flex justify-between items-center text-xs py-1 border-b border-slate-100">
             <span className="text-slate-400">Método de Pagamento</span>
             <span className="font-bold text-slate-800">{metodoPagamento}</span>
           </div>
         )}
 
-        {horaPagamento && (
+        {statusPagamento === 'PAGO' && horaPagamento && (
           <div className="flex justify-between items-center text-xs py-1 border-b border-slate-100">
             <span className="text-slate-400">Horário do Pagamento</span>
             <span className="font-bold text-slate-800">{horaPagamento}</span>
@@ -240,7 +274,7 @@ function MonitoramentoApp() {
 
         <div className="flex justify-between items-center text-xs py-1 border-b border-slate-100">
           <span className="text-slate-400">Check-In</span>
-          <span className="font-bold text-slate-800">21:44</span>
+          <span className="font-bold text-slate-800">{horaCheckin}</span>
         </div>
 
         <div className="flex justify-between items-center text-xs pt-1">
