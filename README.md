@@ -42,7 +42,7 @@ O EstacIA é uma aplicação web e mobile responsiva e intuitiva que oferece nav
 ADS-ESTACIA/
 ├── .github/              # Templates de Issues, PRs e workflows do GitHub
 │   └── ISSUE_TEMPLATE/   # Modelos padronizados para tarefas e bugs
-├── assets/               # Imagens e plantas baixas 2D (Térreo e Subsolo SS1)
+├── assets/               # Plantas 2D (Térreo e SS1) e o mapa extraído por visão computacional (mapa_estacia.json/.js)
 ├── core/                 # Lógica base e utilitários do sistema
 ├── css/                  # Estilos globais e específicos (globals.css, navegacao.css)
 ├── database/             # Scripts de banco de dados e integrações (Supabase)
@@ -50,6 +50,7 @@ ADS-ESTACIA/
 ├── entregas/             # Relatórios de entregas acadêmicas do CEUB
 ├── js/                   # Componentes React/JSX (navegacao.jsx, setores.jsx, etc.)
 ├── routes/               # Gerenciamento de rotas e navegação da aplicação
+├── scripts/              # extrair_mapa.py: pipeline de visão computacional (OpenCV) das plantas
 ├── sprints/              # Registros e retrospectivas de cada Sprint
 ├── index.html            # Tela inicial e seleção de opções
 ├── navegacao.html        # Interface de navegação indoor 3D com GPS simulado
