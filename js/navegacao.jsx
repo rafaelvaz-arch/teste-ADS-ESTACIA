@@ -733,7 +733,7 @@
             <div className="nv-check" aria-hidden="true">✓</div>
             <h2>Você chegou!</h2>
             <p>Vaga <strong>{VAGA.codigo}</strong> · {VAGA.pavimento}</p>
-            <button className="nv-btn nv-go" onClick={finalizar}>🚀 Finalizar Rota</button>
+            <button className="nv-btn nv-go" onClick={finalizar}>Finalizar Rota</button>
           </div>
         )}
 
@@ -752,8 +752,8 @@
           <button className="nv-btn nv-go nv-wide" onClick={onPrimary}>{primaryLabel}</button>
           <div className="nv-row">
             <button className="nv-btn" onClick={resetSim}>↺ Reiniciar</button>
-            <button className={'nv-btn' + (manual ? ' nv-hint' : '')} onClick={recenter}>🎯 Recentralizar</button>
-            <button className="nv-btn nv-ok" onClick={finalizar}>🚀 Finalizar Rota</button>
+            <button className={'nv-btn' + (manual ? ' nv-hint' : '')} onClick={recenter}>Recentralizar</button>
+            <button className="nv-btn nv-ok" onClick={finalizar}>Finalizar Rota</button>
           </div>
         </footer>
       </div>
