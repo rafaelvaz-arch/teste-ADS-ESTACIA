@@ -286,7 +286,7 @@ function MonitoramentoApp() {
       {/* Botão de Pagamento Sempre Ativo */}
       <div className="flex flex-col gap-2 mt-1">
         <button
-          onClick={() => window.location.href = `pagamento.html?id=7&valor=${amount}&tempo=${encodeURIComponent(`0h ${minutes}m`)}`}
+          onClick={() => window.location.href = `pagamento.html?id=7&vaga=${encodeURIComponent(vagaCodigo)}&valor=${amount}&tempo=${encodeURIComponent(`0h ${minutes}m`)}`}
           className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-2xl py-3.5 text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
