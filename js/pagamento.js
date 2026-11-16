@@ -1,6 +1,6 @@
 // js/pagamento.js - Integração do Ecrã com o Backend Node.js
 
-const API_URL = 'http://localhost:3000/api/v1/pagamentos';
+const API_URL = 'https://teste-ads-estacia-pagamentos.onrender.com/api/v1/pagamentos';
 
 /**
  * Função para chamar o backend e gerar o código Pix
