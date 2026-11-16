@@ -37,7 +37,7 @@ const [tempoPermanencia] = React.useState(tempoUrl);
       setLoadingPix(true);
       setErroPix('');
       try {
-        const response = await fetch('http://localhost:3000/api/v1/pagamentos/pix/gerar', {
+        const response = await fetch('https://teste-ads-estacia-pagamentos.onrender.com/api/v1/pagamentos/pix/gerar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -120,7 +120,7 @@ const irParaRecibo = (metodoEscolhido) => {
   // Confirmar Pix e atualizar o Supabase antes de ir para a tela de Sucesso
 const handleConfirmPix = async () => {
     try {
-      const response = await fetch('http://localhost:3000/api/v1/pagamentos/confirmar-manual', {
+      const response = await fetch('https://teste-ads-estacia-pagamentos.onrender.com/api/v1/pagamentos/confirmar-manual', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -147,7 +147,7 @@ const handleConfirmPix = async () => {
     setErroCartao('');
 
     try {
-      const response = await fetch('http://localhost:3000/api/v1/pagamentos/cartao/processar', {
+      const response = await fetch('https://teste-ads-estacia-pagamentos.onrender.com/api/v1/pagamentos/cartao/processar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
