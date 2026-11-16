@@ -1,243 +1,327 @@
 const { useState, useEffect, useRef } = React;
 
-// Helper para normalizar a placa (remove hífens, espaços e deixa maiúsculo)
-const normalizarPlaca = (str) => str ? str.replace(/[^a-zA-Z0-9]/g, '').toUpperCase() : '';
-
 function CheckinApp() {
-  const [step, setStep] = useState("scan"); // "scan" | "form"
-  const [idType, setIdType] = useState("placa"); // "placa" | "chassi"
-  const [inputValue, setInputValue] = useState("ABC1234");
-  const [vagaLida, setVagaLida] = useState("Setor A - Vaga 145");
+  const [etapa, setEtapa] = useState('camera'); // 'camera' | 'validando' | 'recusado' | 'veiculo'
+  const [mensagemErro, setMensagemErro] = useState('');
+  const [erroCamera, setErroCamera] = useState('');
+  const [codigoManual, setCodigoManual] = useState('');
+  const [vagaConfirmada, setVagaConfirmada] = useState(null); // { id_vaga, codigo }
+
+  // Dados do veículo
+  const [tipoIdentificacao, setTipoIdentificacao] = useState('PLACA');
+  const [identificadorVeiculo, setIdentificadorVeiculo] = useState('');
+  const [salvandoEstadia, setSalvandoEstadia] = useState(false);
+
   const videoRef = useRef(null);
-  const canvasRef = useRef(document.createElement("canvas"));
+  const canvasRef = useRef(null);
+  const animacaoRef = useRef(null);
+  const streamRef = useRef(null);
+  const lendoRef = useRef(false);
 
-  // Inicia a câmera nativa com suporte robusto para navegadores móveis
-  useEffect(() => {
-    let streamInstance = null;
-    let animationFrameId = null;
-
-    if (step === "scan") {
-      const constraints = {
-        video: {
-          facingMode: { ideal: "environment" },
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        }
-      };
-
-      navigator.mediaDevices?.getUserMedia(constraints)
-        .then((stream) => {
-          streamInstance = stream;
-          const video = videoRef.current;
-          if (video) {
-            video.srcObject = stream;
-            video.setAttribute("playsinline", true); // Garante suporte total no Chrome/Safari mobile
-            
-            video.play().then(() => {
-              // Inicia a leitura do QR Code apenas após o vídeo começar a rodar
-              const scanQRCode = () => {
-                if (video && video.readyState === video.HAVE_ENOUGH_DATA && video.videoWidth > 0) {
-                  const canvas = canvasRef.current;
-                  canvas.width = video.videoWidth;
-                  canvas.height = video.videoHeight;
-                  const ctx = canvas.getContext("2d");
-                  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-                  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                  if (window.jsQR) {
-                    const code = window.jsQR(imageData.data, imageData.width, imageData.height, {
-                      inversionAttempts: "dontInvert",
-                    });
-
-                    if (code && code.data) {
-                      console.log("QR Code detectado:", code.data);
-                      setVagaLida(code.data);
-                      setStep("form");
-                      return; // Interrompe o loop ao ler
-                    }
-                  }
-                }
-                animationFrameId = requestAnimationFrame(scanQRCode);
-              };
-
-              animationFrameId = requestAnimationFrame(scanQRCode);
-            }).catch(err => console.warn("Erro ao iniciar reprodução do vídeo:", err));
-          }
-        })
-        .catch((err) => {
-          console.warn("Acesso à câmera indisponível:", err);
-        });
+  // Encerra a câmera com segurança
+  const pararCamera = () => {
+    if (animacaoRef.current) {
+      cancelAnimationFrame(animacaoRef.current);
+      animacaoRef.current = null;
     }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+  };
 
-    return () => {
-      if (animationFrameId) cancelAnimationFrame(animationFrameId);
-      if (streamInstance) {
-        streamInstance.getTracks().forEach(track => track.stop());
+  // Inicia a câmera e o loop de leitura do QR Code
+  const iniciarCamera = async () => {
+    setErroCamera('');
+    lendoRef.current = false;
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      });
+      streamRef.current = stream;
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.setAttribute('playsinline', true);
+        await videoRef.current.play();
+        animacaoRef.current = requestAnimationFrame(escanearFrame);
       }
-    };
-  }, [step]);
-
-  const handleFinishScan = () => {
-    setStep("form");
+    } catch (err) {
+      setErroCamera('Não foi possível acessar a câmera. Verifique a permissão ou digite o código abaixo.');
+    }
   };
 
-  const handleConfirmCheckin = async () => {
-    const valorLimpo = idType === "placa" ? normalizarPlaca(inputValue) : inputValue.trim().toUpperCase();
+  const escanearFrame = () => {
+    if (lendoRef.current) return;
 
-    if (!valorLimpo) {
-      alert("Por favor, informe um valor válido.");
-      return;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+
+    if (video && canvas && video.readyState === video.HAVE_ENOUGH_DATA) {
+      const ctx = canvas.getContext('2d');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const qrCode = window.jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: 'dontInvert'
+      });
+
+      if (qrCode && qrCode.data) {
+        lendoRef.current = true;
+        const codigoLido = qrCode.data.trim().toUpperCase();
+        pararCamera();
+        validarVagaNoBanco(codigoLido);
+        return;
+      }
     }
 
-    const dadosCheckin = {
-      plate: valorLimpo,
-      vaga: vagaLida || "Setor A - Vaga 145",
-      checkin_time: new Date().toISOString(),
-      status: "Ativo"
-    };
-
-    localStorage.setItem('active_checkin', JSON.stringify(dadosCheckin));
-    window.location.href = 'monitoramento.html';
+    animacaoRef.current = requestAnimationFrame(escanearFrame);
   };
 
-  const handleTypeChange = (type) => {
-    setIdType(type);
-    setInputValue(type === "placa" ? "ABC1234" : "9BWZZZ377VT004251");
+  useEffect(() => {
+    if (etapa === 'camera') {
+      iniciarCamera();
+    }
+    return () => pararCamera();
+  }, [etapa]);
+
+  // Consulta a função atômica no Supabase
+  const validarVagaNoBanco = async (codigoVaga) => {
+    if (!codigoVaga) return;
+    pararCamera();
+    setEtapa('validando');
+
+    try {
+      const usuarioStr = localStorage.getItem('usuarioLogado');
+      const usuario = usuarioStr ? JSON.parse(usuarioStr) : null;
+
+      if (!usuario || !usuario.id_usuario) {
+        window.location.href = 'index.html';
+        return;
+      }
+
+      const { data, error } = await supabase.rpc('realizar_checkin', {
+        p_codigo_vaga: codigoVaga,
+        p_id_usuario: usuario.id_usuario
+      });
+
+      if (error) {
+        setMensagemErro('Erro ao validar vaga no servidor: ' + error.message);
+        setEtapa('recusado');
+        return;
+      }
+
+      if (data && data.sucesso) {
+        setVagaConfirmada({ id_vaga: data.id_vaga, codigo: codigoVaga });
+        setEtapa('veiculo');
+      } else {
+        setMensagemErro((data && data.mensagem) || 'Esta vaga já está em uso.');
+        setEtapa('recusado');
+      }
+    } catch (err) {
+      setMensagemErro('Falha de conexão: ' + err.message);
+      setEtapa('recusado');
+    }
+  };
+
+  // Grava a estadia e redireciona para o monitoramento
+  const confirmarEstadia = async (e) => {
+    e.preventDefault();
+    if (!identificadorVeiculo.trim()) return;
+
+    setSalvandoEstadia(true);
+    try {
+      const usuario = JSON.parse(localStorage.getItem('usuarioLogado'));
+      const placaFormatada = identificadorVeiculo.trim().toUpperCase();
+
+      const { data: estadia, error } = await supabase
+        .from('estadias')
+        .insert([
+          {
+            id_usuario: usuario.id_usuario,
+            id_vaga: vagaConfirmada.id_vaga,
+            tipo_identificacao: tipoIdentificacao,
+            identificador_veiculo: placaFormatada,
+            data_hora_entrada: new Date().toISOString(),
+            taxa_por_hora: 8.50
+          }
+        ])
+        .select()
+        .single();
+
+      if (error) {
+        alert('Erro ao registrar estadia: ' + error.message);
+        setSalvandoEstadia(false);
+        return;
+      }
+
+      // Salva a vaga real ocupada para o "Encontre meu carro" e Monitoramento
+      localStorage.setItem(
+        'vagaAtual',
+        JSON.stringify({
+          id_vaga: vagaConfirmada.id_vaga,
+          codigo_vaga: vagaConfirmada.codigo,
+          id_estadia: estadia.id_estadia,
+          veiculo: placaFormatada
+        })
+      );
+
+      window.location.href = 'monitoramento.html';
+    } catch (err) {
+      alert('Erro inesperado: ' + err.message);
+      setSalvandoEstadia(false);
+    }
+  };
+
+  const tentarNovamente = () => {
+    setMensagemErro('');
+    setCodigoManual('');
+    setEtapa('camera');
   };
 
   return (
-    <div className="w-full max-w-md sm:max-w-lg bg-[#e8f1fd] rounded-[32px] border border-slate-200/80 shadow-2xl p-4 sm:p-6 flex flex-col gap-4 text-slate-800 font-sans mx-auto">
-      
-      {/* Header */}
-      <header className="flex items-center gap-3">
-        <button
-          onClick={() => (window.location.href = "navegacao.html")}
-          className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-slate-700 shadow-sm border border-slate-200/60 hover:bg-slate-50 transition-colors"
+    <div className="bg-[#f7f4ee] rounded-3xl shadow-2xl p-6 flex flex-col gap-5">
+      {/* Cabeçalho */}
+      <div className="flex items-center gap-3">
+        <a
+          href="principal.html"
+          onClick={pararCamera}
+          className="w-10 h-10 rounded-full bg-white shadow flex items-center justify-center text-[#1565c0] font-bold hover:bg-blue-50"
         >
-          <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-base font-bold text-slate-900 truncate">Check-in</h1>
-          <p className="text-xs text-slate-500 truncate">Registre seu veículo</p>
+          ←
+        </a>
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">Check-in</h1>
+          <p className="text-xs text-gray-500">Registre seu veículo na vaga</p>
         </div>
-      </header>
+      </div>
 
-      {/* ETAPA 1: ESCANEAR QR CODE */}
-      {step === "scan" ? (
-        <div className="flex flex-col gap-4">
-          <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm text-center flex flex-col items-center">
-            <h2 className="text-base font-extrabold text-slate-900">Check-in na Vaga</h2>
-            <p className="text-xs text-slate-400 mt-1">Aponte a câmera para o QR Code da vaga</p>
-
-            <div className="my-6 relative aspect-square w-full max-w-[220px] rounded-2xl bg-slate-950 overflow-hidden flex items-center justify-center border border-slate-800 shadow-inner">
-              <video 
-                ref={videoRef} 
-                autoPlay 
-                playsInline 
-                muted
-                className="absolute inset-0 w-full h-full object-cover"
-              />
-              <div className="absolute inset-4 border-2 border-dashed border-white/40 rounded-xl pointer-events-none z-10" />
-              {/* Linha animada do scanner */}
-              <div className="absolute left-4 right-4 h-0.5 bg-blue-500 shadow-[0_0_12px_#3b82f6] animate-scan-line z-10" />
-            </div>
-
-            <button
-              onClick={handleFinishScan}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-xl py-3 text-xs font-bold shadow-md transition-all"
-            >
-              Simular Leitura Concluída (Vaga 145)
-            </button>
-          </div>
-        </div>
-      ) : (
-
-      /* ETAPA 2: REGISTRO DE PLACA / CHASSI */
-        <div className="flex flex-col gap-4">
-          <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm text-center flex flex-col items-center">
-            <h2 className="text-base font-extrabold text-slate-900">Check-in na Vaga</h2>
-            <p className="text-xs text-slate-400 mt-1">QR Code lido com sucesso!</p>
-
-            <div className="my-5 flex flex-col items-center">
-              <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-2">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <span className="text-[11px] text-slate-400 font-medium">Vaga identificada</span>
-              <span className="text-xl font-black text-blue-600">{vagaLida}</span>
-            </div>
-
-            <button
-              onClick={() => setStep("scan")}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-xl py-2.5 text-xs font-bold transition-all"
-            >
-              Escanear Novamente
-            </button>
+      {/* ETAPA 1: CÂMERA LEITORA DE QR CODE */}
+      {etapa === 'camera' && (
+        <div className="bg-white rounded-2xl p-5 shadow-sm flex flex-col items-center gap-4">
+          <div className="text-center">
+            <h2 className="font-bold text-gray-800 text-base">Check-in na Vaga</h2>
+            <p className="text-xs text-gray-500 mt-1">Aponte a câmera para o QR Code da vaga</p>
           </div>
 
-          <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm flex flex-col gap-4">
-            <div>
-              <label className="text-xs font-bold text-slate-900 block mb-2">Tipo de Identificação</label>
-              <div className="grid grid-cols-2 gap-2 bg-slate-50 p-1 rounded-xl border border-slate-200/60">
-                <button
-                  type="button"
-                  onClick={() => handleTypeChange("placa")}
-                  className={`py-2 text-xs font-bold rounded-lg transition-all ${
-                    idType === "placa"
-                      ? "bg-blue-600 text-white shadow-xs"
-                      : "text-slate-600 hover:bg-slate-100"
-                  }`}
-                >
-                  Placa
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleTypeChange("chassi")}
-                  className={`py-2 text-xs font-bold rounded-lg transition-all ${
-                    idType === "chassi"
-                      ? "bg-blue-600 text-white shadow-xs"
-                      : "text-slate-600 hover:bg-slate-100"
-                  }`}
-                >
-                  Chassi
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-slate-900 block mb-1">
-                {idType === "placa" ? "Placa do Veículo" : "Número do Chassi"}
-              </label>
-              <input
-                type="text"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                placeholder={idType === "placa" ? "Ex: ABC1234" : "Informe o Chassi"}
-                className="w-full bg-slate-100 border border-slate-200/80 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
-              />
-            </div>
-
-            <button
-              onClick={handleConfirmCheckin}
-              className="w-full bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl py-3 text-xs font-bold shadow-md transition-all flex items-center justify-center gap-1.5"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
-              </svg>
-              Confirmar Check-in
-            </button>
+          <div className="relative w-64 h-64 bg-gray-950 rounded-2xl overflow-hidden flex items-center justify-center border-2 border-dashed border-gray-600">
+            <video ref={videoRef} className="w-full h-full object-cover" />
+            <canvas ref={canvasRef} className="hidden" />
+            <div className="absolute left-3 right-3 h-0.5 bg-blue-400 shadow-[0_0_8px_#60a5fa] animate-scan-line pointer-events-none" />
           </div>
 
+          {erroCamera && (
+            <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded-lg text-center">
+              {erroCamera}
+            </p>
+          )}
+
+          {/* Campo alternativo caso teste no PC sem webcam */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              validarVagaNoBanco(codigoManual.trim().toUpperCase());
+            }}
+            className="w-full pt-2 border-t border-gray-100 flex gap-2"
+          >
+            <input
+              type="text"
+              value={codigoManual}
+              onChange={(e) => setCodigoManual(e.target.value)}
+              placeholder="Ou digite o código (ex: A-145)"
+              className="flex-1 border border-gray-300 rounded-xl px-3 py-2 text-xs uppercase focus:outline-none focus:border-[#1565c0]"
+            />
+            <button
+              type="submit"
+              className="bg-[#1565c0] text-white text-xs font-semibold px-4 py-2 rounded-xl hover:bg-blue-800"
+            >
+              Validar
+            </button>
+          </form>
         </div>
       )}
 
+      {/* ETAPA 2: VALIDANDO NO BANCO */}
+      {etapa === 'validando' && (
+        <div className="bg-white rounded-2xl p-8 shadow-sm flex flex-col items-center gap-3 text-center">
+          <div className="w-10 h-10 border-4 border-[#1565c0] border-t-transparent rounded-full animate-spin" />
+          <p className="font-semibold text-gray-800">Verificando disponibilidade da vaga...</p>
+        </div>
+      )}
+
+      {/* ETAPA 3: RECUSADO (VAGA OCUPADA / RESERVADA) */}
+      {etapa === 'recusado' && (
+        <div className="bg-white rounded-2xl p-6 shadow-sm flex flex-col items-center gap-4 text-center border-2 border-red-200">
+          <div className="w-14 h-14 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-2xl font-bold">
+            ✕
+          </div>
+          <div>
+            <h2 className="font-bold text-red-700 text-lg">Acesso Recusado</h2>
+            <p className="text-sm text-gray-600 mt-1">{mensagemErro}</p>
+          </div>
+          <button
+            onClick={tentarNovamente}
+            className="w-full bg-[#1565c0] text-white font-semibold py-3 rounded-xl text-sm hover:bg-blue-800"
+          >
+            Ler Outro QR Code
+          </button>
+        </div>
+      )}
+
+      {/* ETAPA 4: ACEITO -> PEDIR PLACA/CHASSI */}
+      {etapa === 'veiculo' && vagaConfirmada && (
+        <form onSubmit={confirmarEstadia} className="bg-white rounded-2xl p-6 shadow-sm flex flex-col gap-4">
+          <div className="bg-green-50 border border-green-200 rounded-xl p-3 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-green-600 text-white flex items-center justify-center font-bold">
+              ✓
+            </div>
+            <div>
+              <p className="text-sm font-bold text-green-800">Check-in confirmado!</p>
+              <p className="text-xs text-green-700">Vaga ocupada: <strong>{vagaConfirmada.codigo}</strong></p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-gray-600">Tipo de Identificação</label>
+            <select
+              value={tipoIdentificacao}
+              onChange={(e) => setTipoIdentificacao(e.target.value)}
+              className="border border-gray-300 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:border-[#1565c0]"
+            >
+              <option value="PLACA">Placa do Veículo</option>
+              <option value="CHASSI">Chassi</option>
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-gray-600">
+              {tipoIdentificacao === 'PLACA' ? 'Digite a Placa' : 'Digite o Chassi'}
+            </label>
+            <input
+              type="text"
+              required
+              value={identificadorVeiculo}
+              onChange={(e) => setIdentificadorVeiculo(e.target.value)}
+              placeholder={tipoIdentificacao === 'PLACA' ? 'Ex: ABC1D23' : 'Ex: 9BWZZZ377VT004251'}
+              className="border border-gray-300 rounded-xl px-3 py-2.5 text-sm uppercase focus:outline-none focus:border-[#1565c0]"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={salvandoEstadia}
+            className="w-full bg-[#1565c0] text-white font-semibold py-3.5 rounded-xl text-sm shadow hover:bg-blue-800 disabled:opacity-50"
+          >
+            {salvandoEstadia ? 'Iniciando estadia...' : 'Confirmar e Ir para Monitoramento'}
+          </button>
+        </form>
+      )}
     </div>
   );
 }
 
-const rootElement = document.getElementById("root");
-const root = ReactDOM.createRoot(rootElement);
+const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<CheckinApp />);
