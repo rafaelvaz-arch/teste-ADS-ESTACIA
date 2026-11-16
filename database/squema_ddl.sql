@@ -69,6 +69,89 @@ CREATE TABLE IF NOT EXISTS public.estadias (
     criado_em TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
+--RF08 (janela de saída de 20 minutos pós-pagamento)
+-- 1. Remover a constraint de validação de status antiga
+ALTER TABLE public.estadias 
+DROP CONSTRAINT IF EXISTS estadias_status_pagamento_check;
+
+-- 2. Adicionar os novos campos necessários para o controle do RF08
+ALTER TABLE public.estadias
+    ADD COLUMN IF NOT EXISTS data_hora_pagamento TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS valor_excedente NUMERIC(10, 2) DEFAULT 0.00;
+
+-- 3. Recriar a constraint de status com a opção 'EXCEDIDO'
+ALTER TABLE public.estadias
+    ADD CONSTRAINT estadias_status_pagamento_check 
+    CHECK (status_pagamento IN ('PENDENTE', 'PAGO', 'EXCEDIDO', 'CANCELADO'));
+
+-- 4. Índice para buscas rápidas por status e verificação de saída
+CREATE INDEX IF NOT EXISTS idx_estadias_status_pagamento ON public.estadias(status_pagamento);
+
+-- Execução da lógica da janela de tolerância
+CREATE OR REPLACE FUNCTION fn_validar_janela_saida(p_id_estadia BIGINT)
+RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_estadia RECORD;
+    v_agora TIMESTAMPTZ := CURRENT_TIMESTAMP;
+    v_minutos_decorridos INT;
+    v_minutos_excedidos INT;
+    v_horas_cobrar INT;
+    v_valor_excedente NUMERIC(10,2);
+    v_janela_tolerancia INT := 20;
+BEGIN
+    SELECT * INTO v_estadia 
+    FROM public.estadias 
+    WHERE id_estadia = p_id_estadia;
+
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object('sucesso', false, 'erro', 'Estadia não encontrada');
+    END IF;
+
+    IF v_estadia.data_hora_pagamento IS NULL OR v_estadia.status_pagamento = 'PENDENTE' THEN
+        RETURN jsonb_build_object(
+            'liberado', false, 
+            'motivo', 'PAGAMENTO_PENDENTE',
+            'mensagem', 'Pagamento não identificado'
+        );
+    END IF;
+
+    -- Calcular diferença em minutos
+    v_minutos_decorridos := FLOOR(EXTRACT(EPOCH FROM (v_agora - v_estadia.data_hora_pagamento)) / 60);
+
+    IF v_minutos_decorridos <= v_janela_tolerancia THEN
+        UPDATE public.estadias
+        SET data_hora_saida = v_agora
+        WHERE id_estadia = p_id_estadia;
+
+        RETURN jsonb_build_object(
+            'liberado', true,
+            'mensagem', 'Saída liberada',
+            'minutos_decorridos', v_minutos_decorridos
+        );
+    ELSE
+        v_minutos_excedidos := v_minutos_decorridos - v_janela_tolerancia;
+        v_horas_cobrar := CEIL(v_minutos_excedidos::NUMERIC / 60.0);
+        v_valor_excedente := v_horas_cobrar * COALESCE(v_estadia.taxa_por_hora, 8.50);
+
+        UPDATE public.estadias
+        SET status_pagamento = 'EXCEDIDO',
+            valor_excedente = v_valor_excedente
+        WHERE id_estadia = p_id_estadia;
+
+        RETURN jsonb_build_object(
+            'liberado', false,
+            'motivo', 'JANELA_EXCEDIDA',
+            'minutos_decorridos', v_minutos_decorridos,
+            'minutos_excedidos', v_minutos_excedidos,
+            'valor_excedente', v_valor_excedente
+        );
+    END IF;
+END;
+$$;
+--
+
 -- Índices de alta performance
 CREATE INDEX IF NOT EXISTS idx_vagas_codigo ON public.vagas(codigo_vaga);
 CREATE INDEX IF NOT EXISTS idx_vagas_status ON public.vagas(status);
@@ -147,6 +230,52 @@ SELECT
 FROM public.estadias
 GROUP BY DATE(data_hora_entrada)
 ORDER BY data DESC;
+
+-- ============================================================================
+-- ATUALIZAÇÃO DA TABELA ESTADIAS PARA SUPORTE A MÚLTIPLOS MÉTODOS DE PAGAMENTO
+-- ============================================================================
+ALTER TABLE public.estadias 
+DROP CONSTRAINT IF EXISTS estadias_metodo_pagamento_check;
+
+ALTER TABLE public.estadias 
+ADD COLUMN IF NOT EXISTS metodo_pagamento VARCHAR(30) DEFAULT 'PIX';
+
+ALTER TABLE public.estadias 
+ADD CONSTRAINT estadias_metodo_pagamento_check 
+CHECK (metodo_pagamento IN ('PIX', 'CARTAO_CREDITO', 'CARTAO_DEBITO'));
+
+
+-- ============================================================================
+-- VIEW: Histórico de Estadias e Recibo Digital (RF09)
+-- ============================================================================
+CREATE OR REPLACE VIEW public.vw_historico_estadias AS
+SELECT 
+    e.id_estadia,
+    e.id_usuario,
+    u.nome_completo AS nome_usuario,
+    u.email AS email_usuario,
+    e.identificador_veiculo AS placa_veiculo,
+    e.tipo_identificacao,
+    e.data_hora_entrada,
+    e.data_hora_saida,
+    e.data_hora_pagamento,
+    e.valor_total,
+    e.valor_excedente,
+    (e.valor_total + COALESCE(e.valor_excedente, 0.00)) AS valor_final_pago,
+    COALESCE(e.metodo_pagamento, 'PIX') AS metodo_pagamento,
+    e.status_pagamento,
+    v.codigo_vaga,
+    s.nome_setor,
+    ps.nome_shopping,
+    ps.nivel_piso,
+    ps.cidade,
+    ps.uf
+FROM public.estadias e
+INNER JOIN public.usuarios u ON e.id_usuario = u.id_usuario
+INNER JOIN public.vagas v ON e.id_vaga = v.id_vaga
+INNER JOIN public.setores s ON v.id_setor = s.id_setor
+INNER JOIN public.plantas_shopping ps ON s.id_planta = ps.id_planta
+WHERE e.status_pagamento IN ('PAGO', 'EXCEDIDO');
 
 -- ============================================================================
 -- DESABILITAR RLS PARA PERMITIR ACESSO DO FRONTEND (TESTES DE DESENVOLVIMENTO)
