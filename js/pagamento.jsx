@@ -8,6 +8,7 @@ const urlParams = new URLSearchParams(window.location.search);
 const idUrl = urlParams.get('id') || urlParams.get('id_estadia') || 7;
 const valorUrl = urlParams.get('valor') || 1.98;
 const tempoUrl = urlParams.get('tempo') || '0h 14m';
+const vagaUrl = urlParams.get('vaga') || 'A-145';
 
 // Dados da estadia atual 
 const [idEstadia] = React.useState(Number(idUrl));
@@ -102,8 +103,22 @@ const [tempoPermanencia] = React.useState(tempoUrl);
     alert("Código PIX copiado com sucesso!");
   };
 
+const irParaRecibo = (metodoEscolhido) => {
+  const agora = Date.now();
+  sessionStorage.setItem('estacia_pagamento_timestamp', String(agora));
+  sessionStorage.setItem('estacia_recibo_dados', JSON.stringify({
+    id_estadia: idEstadia,
+    vaga: vagaUrl,
+    valor: valorTotal,
+    tempo: tempoPermanencia,
+    metodo: metodoEscolhido
+  }));
+
+  window.location.href = `recibo.html?id=${idEstadia}&vaga=${encodeURIComponent(vagaUrl)}&valor=${valorTotal}&tempo=${encodeURIComponent(tempoPermanencia)}&metodo=${encodeURIComponent(metodoEscolhido)}`;
+};
+
   // Confirmar Pix e atualizar o Supabase antes de ir para a tela de Sucesso
-  const handleConfirmPix = async () => {
+const handleConfirmPix = async () => {
     try {
       const response = await fetch('https://teste-ads-estacia-pagamentos.onrender.com/api/v1/pagamentos/confirmar-manual', {
         method: 'POST',
@@ -115,7 +130,7 @@ const [tempoPermanencia] = React.useState(tempoUrl);
       });
 
       if (response.ok) {
-        setScreen('success');
+        irParaRecibo('PIX');
       } else {
         alert('Erro ao atualizar estado no banco de dados.');
       }
@@ -144,7 +159,7 @@ const [tempoPermanencia] = React.useState(tempoUrl);
       const data = await response.json();
 
       if (response.ok && data.status === 'approved') {
-        setScreen('success');
+        irParaRecibo('CARTÃO');
       } else {
         setErroCartao(data.error || 'Pagamento recusado.');
       }
@@ -228,7 +243,7 @@ const handleFinish = async () => {
         <div className="payment-wrapper">
           {/* Header */}
           <div className="header-navigation">
-            <a href="checkin.html" className="btn-back">
+            <a href="monitoramento.html" className="btn-back">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <polyline points="15 18 9 12 15 6"></polyline>
               </svg>

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EstaciA - Comprovante e Ticket</title>
+
+  <!-- Fonte Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- React, Babel, Supabase & html2canvas (para baixar PNG) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+
+    /* Efeito de picote lateral de ticket */
+    .ticket-divider {
+      border-top: 2px dashed #cbd5e1;
+    }
+   
+    /* Configuração limpa para gerar PDF via window.print() */
+    @media print {
+      body {
+        background: #ffffff !important;
+        padding: 0 !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+      #ticket-para-download {
+        box-shadow: none !important;
+        border: 1px solid #cbd5e1 !important;
+        max-width: 100% !important;
+        margin: 0 auto !important;
+      }
+      .ticket-divider::before,
+      .ticket-divider::after {
+        display: none !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-b from-[#0a52be] via-[#0d2a6b] to-[#091533] min-h-screen flex items-center justify-center p-3 sm:p-6">
+
+  <div id="root" class="w-full flex justify-center"></div>
+
+  <script type="text/babel" src="js/recibo.jsx"></script>
+</body>
+</html>
